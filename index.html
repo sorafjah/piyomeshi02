@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ピヨめし - 調整版</title>
+    <title>ピヨめし - 雷Ver</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     
     <!-- PWA設定 -->
@@ -81,7 +81,6 @@
 
         #messageArea {
             position: absolute;
-            /* 位置を少し下に変更 (100px -> 140px) */
             top: 140px;
             width: 100%;
             text-align: center;
@@ -155,12 +154,12 @@
         <div id="scoreDisplay">0</div>
     </div>
     
-    <!-- 指示文言の変更 -->
     <div id="messageArea">
         なぞって横移動<br>
         タッチでパンチ<br>
         ダブルタッチで強パンチ<br>
-        長押しで自分が食べて体力回復
+        長押しで自分が食べて体力回復<br>
+        <span style="color:yellow; text-shadow:1px 1px 0 #000;">⚡カミナリは麻痺するぞ！</span>
     </div>
 
     <div id="gameOverScreen">
@@ -192,6 +191,8 @@
         let player;
         let foods = [];
         let birds = [];
+        let obstacles = []; // ひまわり
+        let lightnings = []; // 雷
         let particles = [];
 
         // 操作関連
@@ -209,6 +210,8 @@
         const STRONG_PUNCH_COST = 6; 
         const EAT_HEAL = 30; 
         const DAMAGE_ON_DROP = 15; 
+        const DAMAGE_OBSTACLE = 15;
+        const DAMAGE_LIGHTNING = 20; 
         const GRAVITY = 0.6; 
         
         const FOOD_GRAVITY = 0.04; 
@@ -242,49 +245,120 @@
                 this.radius = this.size / 2;
                 this.x = W / 2;
                 this.y = groundY - this.radius;
-                this.vx = 0;
-                this.vy = 0;
+                this.vx = 0; // 水平速度（ジャンプ中の慣性用）
+                this.vy = 0; // 垂直速度
                 this.health = PLAYER_MAX_HEALTH;
                 this.emoji = '🕺';
                 this.isJumping = false;
                 this.isStrongJump = false;
+                
+                this.walkWiggle = 0; 
+                this.isMoving = false;
+                this.lastMoveDir = 0; // 直前の移動方向を記録
+
+                // 麻痺状態
+                this.stunTimer = 0; 
             }
 
             draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // 麻痺中の震え
+                if (this.stunTimer > 0) {
+                    ctx.translate(rand(-3, 3), rand(-3, 3));
+                    ctx.fillStyle = "yellow";
+                    ctx.globalAlpha = 0.5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                }
+
+                if (this.isMoving && !this.isJumping && this.stunTimer <= 0) {
+                    ctx.rotate(Math.sin(Date.now() * 0.015) * 0.15);
+                }
+
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                
                 if (this.isJumping && this.isStrongJump) {
                      ctx.shadowBlur = 10;
                      ctx.shadowColor = "orange";
                 } else {
                      ctx.shadowBlur = 0;
                 }
-                ctx.fillText(this.emoji, this.x, this.y);
+                
+                // 常にプレイヤーの絵文字を使用する（雷アイコンに変更しない）
+                ctx.fillText(this.emoji, 0, 0);
+                
+                ctx.restore();
                 ctx.shadowBlur = 0; 
+                
+                this.isMoving = false; 
             }
 
             update() {
-                if (this.isJumping) {
-                    this.vy += GRAVITY;
-                    this.y += this.vy;
+                // 麻痺タイマー
+                if (this.stunTimer > 0) {
+                    this.stunTimer--;
+                    // 麻痺中は操作不能だが、重力は受ける
+                }
 
-                    if (this.y > groundY - this.radius) {
-                        this.y = groundY - this.radius;
+                // 重力
+                this.vy += GRAVITY;
+                this.y += this.vy;
+                
+                // 空中での慣性移動 (vx)
+                if (this.isJumping) {
+                    this.x += this.vx;
+                    this.vx *= 0.95; // 空気抵抗で減速
+                } else {
+                    this.vx = 0; // 地面ではリセット（操作による移動はmove()で直接行う）
+                }
+
+                // 地面判定
+                if (this.y > groundY - this.radius) {
+                    this.y = groundY - this.radius;
+
+                    if (this.vy > 4) {
+                        this.vy = -this.vy * 0.3; 
+                    } else {
                         this.vy = 0;
                         this.isJumping = false;
                         this.isStrongJump = false;
                     }
-                } else {
-                    this.y = groundY - this.radius;
                 }
 
-                if (this.x < this.radius) this.x = this.radius;
-                if (this.x > W - this.radius) this.x = W - this.radius;
+                if (this.x < this.radius) {
+                    this.x = this.radius;
+                    this.vx *= -1; // 壁反射
+                }
+                if (this.x > W - this.radius) {
+                    this.x = W - this.radius;
+                    this.vx *= -1;
+                }
             }
 
             move(dx) {
+                if (this.stunTimer > 0) return; // 麻痺中は動けない
+
                 this.x += dx;
+                if (Math.abs(dx) > 0.5) {
+                    this.isMoving = true;
+                    this.lastMoveDir = dx; // 移動量を保存してジャンプに使う
+                } else {
+                    this.lastMoveDir *= 0.8; // 止まると慣性も消えていく
+                }
+            }
+
+            stun(frames) {
+                this.stunTimer = frames;
+                this.isJumping = false; // 強制着地させないが、ジャンプフラグは維持でもいいかも。
+                // 今回は麻痺すると空中で制御不能になるイメージ
+                createParticle(this.x, this.y, '⚡');
+                if (navigator.vibrate) navigator.vibrate([50, 50, 50, 50]);
             }
 
             changeHealth(amount) {
@@ -305,12 +379,22 @@
 
             jumpPunch(isStrong) {
                 if (isGameOver) return;
+                if (this.stunTimer > 0) return; // 麻痺中はパンチできない
+
+                // 斜めジャンプの計算
+                // 直前の移動量(lastMoveDir)を元に、水平速度(vx)を与える
+                // 少し補正をかけて飛びやすくする
+                let jumpVx = this.lastMoveDir * 0.8; 
+                // 最大速度制限
+                jumpVx = Math.max(-8, Math.min(8, jumpVx));
 
                 if (this.isJumping) {
                     if (isStrong && !this.isStrongJump) {
                         this.isStrongJump = true;
                         this.changeHealth(-(STRONG_PUNCH_COST - PUNCH_COST));
                         this.vy = -12; 
+                        // 空中での強パンチ追加でも、方向転換を少し許容
+                        if (Math.abs(jumpVx) > 1) this.vx = jumpVx; 
                         createParticle(this.x, this.y - 40, '🔥'); 
                     }
                 } else {
@@ -321,36 +405,40 @@
                     this.isJumping = true;
                     this.isStrongJump = isStrong;
                     this.vy = isStrong ? -16 : -10; 
+                    this.vx = jumpVx; // ジャンプ初速に水平成分を追加
 
                     createParticle(this.x, this.y - 30, isStrong ? '💥' : '💨');
                 }
 
+                // --- パンチ判定 ---
                 const hitX = this.x;
-                const hitY = this.y - 30; 
-                const punchRange = isStrong ? 120 : 90; 
+                const rangeX = isStrong ? 70 : 50; 
+                const validYMin = this.y - 90; 
+                const validYMax = this.y - 30; 
 
                 foods.forEach(food => {
-                    const dist = getDistance(hitX, hitY, food.x, food.y);
-
-                    if (dist < punchRange + food.radius && food.y < this.y + 40) {
-                        
-                        let pushX = (food.x - this.x) * 0.2;
-                        if (Math.abs(pushX) < 2) pushX = rand(-2, 2);
-                        
-                        const targetHeight = this.isStrongJump ? H * 0.5 : H * 0.3;
-                        const jumpH = Math.max(50, targetHeight); 
-                        const punchPowerY = -Math.sqrt(2 * FOOD_GRAVITY * jumpH);
-                        
-                        food.punch(pushX, punchPowerY);
-                        createParticle(food.x, food.y, '💢');
-                        
-                        if (navigator.vibrate) navigator.vibrate(this.isStrongJump ? 30 : 10);
+                    if (Math.abs(food.x - hitX) < rangeX + food.radius) {
+                        if (food.y > validYMin && food.y < validYMax) {
+                            
+                            let pushX = (food.x - this.x) * 0.2;
+                            if (Math.abs(pushX) < 2) pushX = rand(-2, 2);
+                            
+                            const targetHeight = this.isStrongJump ? H * 0.5 : H * 0.3;
+                            const jumpH = Math.max(50, targetHeight); 
+                            const punchPowerY = -Math.sqrt(2 * FOOD_GRAVITY * jumpH);
+                            
+                            food.punch(pushX, punchPowerY);
+                            createParticle(food.x, food.y, '💢');
+                            
+                            if (navigator.vibrate) navigator.vibrate(this.isStrongJump ? 30 : 10);
+                        }
                     }
                 });
             }
 
             eat() {
                 if (isGameOver) return;
+                if (this.stunTimer > 0) return; // 麻痺中は食べられない
                 
                 const eatBuffer = 100; 
 
@@ -371,6 +459,103 @@
             }
         }
 
+        // --- 障害物クラス（ひまわり） ---
+        class Sunflower {
+            constructor() {
+                this.size = 40;
+                this.radius = 15; 
+                this.x = rand(50, W - 50); 
+                this.y = groundY; 
+                this.growY = 0;   
+                this.state = 'growing'; 
+                this.timer = 0;
+                this.lifeTime = 300; 
+                this.emoji = '🌻';
+            }
+
+            update() {
+                if (this.state === 'growing') {
+                    this.growY += 2;
+                    if (this.growY >= 30) this.state = 'active';
+                } else if (this.state === 'active') {
+                    this.timer++;
+                    if (this.timer > this.lifeTime) this.state = 'dying';
+                    
+                    const playerBottom = player.y;
+                    if (playerBottom > this.y - 30) {
+                         if (Math.abs(player.x - this.x) < this.radius + player.radius) {
+                             player.changeHealth(-DAMAGE_OBSTACLE);
+                             createParticle(player.x, player.y, '😵');
+                             if (navigator.vibrate) navigator.vibrate(200);
+                             return 'remove';
+                         }
+                    }
+
+                } else if (this.state === 'dying') {
+                    this.growY -= 2;
+                    if (this.growY <= 0) return 'remove';
+                }
+                return 'alive';
+            }
+
+            draw() {
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom'; 
+                ctx.globalAlpha = this.state === 'active' ? 1.0 : 0.7;
+                ctx.fillText(this.emoji, this.x, this.y - this.growY + 30); 
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        // --- お邪魔キャラ（カミナリ） ---
+        class Lightning {
+            constructor() {
+                this.x = rand(20, W - 20);
+                this.y = -50;
+                this.size = 40;
+                this.radius = 20;
+                this.speedY = 3; // 落下速度
+                this.speedX = 0; 
+                this.zigzagTimer = 0;
+                this.emoji = '⚡';
+            }
+
+            update() {
+                this.y += this.speedY;
+                
+                // ジグザグ移動
+                this.zigzagTimer++;
+                if (this.zigzagTimer % 20 === 0) {
+                    this.speedX = rand(-4, 4); // ランダムに方向転換
+                }
+                this.x += this.speedX;
+
+                // 画面外（下）へ
+                if (this.y > groundY) return 'remove';
+
+                // プレイヤーとの当たり判定
+                const dist = getDistance(this.x, this.y, player.x, player.y - 20);
+                if (dist < this.radius + player.radius) {
+                    player.changeHealth(-DAMAGE_LIGHTNING);
+                    player.stun(90); // 90フレーム(約1.5秒)麻痺
+                    return 'remove';
+                }
+
+                return 'alive';
+            }
+
+            draw() {
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = 'yellow';
+                ctx.fillText(this.emoji, this.x, this.y);
+                ctx.shadowBlur = 0;
+            }
+        }
+
         class Food {
             constructor() {
                 this.radius = 15; 
@@ -384,16 +569,14 @@
                 this.isPunched = false;
                 this.bounced = false;
                 
-                // --- ヒットストップ用変数 ---
                 this.pendingVx = 0;
                 this.pendingVy = 0;
-                this.hitStop = 0; // ヒットストップ中のフレーム数
+                this.hitStop = 0; 
             }
 
             draw() {
                 ctx.save();
                 ctx.translate(this.x, this.y);
-                // ヒットストップ中はブルブル震える
                 if (this.hitStop > 0) {
                     ctx.translate(rand(-2, 2), rand(-2, 2));
                 }
@@ -406,17 +589,15 @@
             }
 
             update() {
-                // --- ヒットストップ処理 ---
                 if (this.hitStop > 0) {
                     this.hitStop--;
                     if (this.hitStop === 0) {
-                        // ストップ終了、発射
                         this.vx = this.pendingVx;
                         this.vy = this.pendingVy;
                         this.rotSpeed = rand(-0.2, 0.2);
                         this.isPunched = true;
                     }
-                    return 'alive'; // 動きを止めてリターン
+                    return 'alive'; 
                 }
 
                 if (this.x < this.radius) {
@@ -427,7 +608,6 @@
                     this.vx *= -0.8;
                 }
 
-                // 地面に接地していない、または既に跳ねた後は通常通り動く
                 if (this.y < groundY - this.radius || this.bounced) {
                     this.vy += FOOD_GRAVITY; 
                     this.x += this.vx;
@@ -436,22 +616,17 @@
                     this.vx *= 0.99; 
                 }
 
-                // 地面接触判定
                 if (this.y >= groundY - this.radius) {
                     if (!this.bounced) {
-                        // 接地処理 - 即時バウンド
                         this.y = groundY - this.radius;
-                        
                         const bounceHeight = H * 0.5;
                         this.vy = -Math.sqrt(2 * FOOD_GRAVITY * bounceHeight);
-                        
                         this.vx = rand(-1, 1);
                         this.rotSpeed = rand(-0.2, 0.2);
                         this.bounced = true;
                         createParticle(this.x, this.y, '➰'); 
                         return 'alive';
                     } else {
-                        // 2回目でロスト
                         this.y = groundY - this.radius;
                         this.vx = 0;
                         player.changeHealth(-DAMAGE_ON_DROP);
@@ -464,11 +639,9 @@
             }
 
             punch(vx, vy) {
-                // ヒットストップ開始
-                this.hitStop = 6; // 約0.1秒の溜め
+                this.hitStop = 6; 
                 this.pendingVx = vx;
                 this.pendingVy = vy;
-                // まだ isPunched = true にしない（動いてから）
             }
         }
 
@@ -480,7 +653,7 @@
                 this.y = y;
                 this.size = 35;
                 this.radius = this.size / 2;
-                this.emoji = '🐥'; // ひよこに変更
+                this.emoji = '🐥'; 
                 this.eatTimer = 0;
                 this.swingPhase = rand(0, 100);
             }
@@ -505,7 +678,6 @@
                 this.y = this.baseY + Math.cos(this.swingPhase * 0.7) * 5;
 
                 foods.forEach(f => {
-                    // パンチされて飛んでいる状態(isPunched)のものだけ食べる
                     if (f.isPunched && circleCollision(this, f)) {
                         this.eatTimer = 30;
                         f.y = -999;
@@ -547,6 +719,9 @@
             score = 0;
             isGameOver = false;
             foods = [];
+            birds = [];
+            obstacles = []; 
+            lightnings = []; // 雷初期化
             particles = [];
             scoreDisplay.textContent = score;
             gameOverScreen.style.display = 'none';
@@ -644,6 +819,32 @@
             ctx.fillStyle = '#228B22';
             ctx.fillRect(0, groundY, W, 15);
 
+            // ひまわり
+            if (rand(0, 500) < 3 && obstacles.length < 2) {
+                obstacles.push(new Sunflower());
+            }
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const res = obstacles[i].update();
+                if (res === 'remove') {
+                    obstacles.splice(i, 1);
+                } else {
+                    obstacles[i].draw();
+                }
+            }
+
+            // 雷
+            if (rand(0, 600) < 2) { // ひまわりより少しレア
+                lightnings.push(new Lightning());
+            }
+            for (let i = lightnings.length - 1; i >= 0; i--) {
+                const res = lightnings[i].update();
+                if (res === 'remove') {
+                    lightnings.splice(i, 1);
+                } else {
+                    lightnings[i].draw();
+                }
+            }
+
             player.update();
             player.draw();
 
@@ -678,7 +879,6 @@
         function gameOver() {
             isGameOver = true;
             clearInterval(window.spawnTimer);
-            // 変更: SCORE 表示に修正
             finalScoreDisplay.textContent = `SCORE: ${score}`;
             gameOverScreen.style.display = 'block';
             uiContainer.style.display = 'none';
@@ -690,13 +890,11 @@
 
         let isSwiping = false; 
 
-        // 座標正規化
         function getPoint(e) {
             if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
             return { x: e.clientX, y: e.clientY };
         }
 
-        // 開始 (TouchStart / MouseDown)
         function handleStart(e) {
             e.preventDefault();
             if (isGameOver) return;
@@ -710,10 +908,8 @@
             touchStartTime = Date.now();
         }
 
-        // 移動 (TouchMove / MouseMove)
         function handleMove(e) {
             e.preventDefault();
-            // マウスの場合、押してなければ無視
             if (e.type === 'mousemove' && !isTouching) return;
             if (isGameOver || !isTouching) return;
 
@@ -725,14 +921,12 @@
             lastTouchX = p.x;
         }
 
-        // 終了 (TouchEnd / MouseUp)
         function handleEnd(e) {
             e.preventDefault();
             if (isGameOver) return;
             
             isTouching = false;
 
-            // 終了座標の取得
             let endX, endY;
             if (e.changedTouches) {
                 endX = e.changedTouches[0].clientX;
@@ -746,23 +940,18 @@
             const diffX = endX - touchStartX;
             const dist = Math.sqrt(diffX*diffX + diffY*diffY);
 
-            // 【変更】上スワイプでの回復を削除
-            // ホールドでの回復のみに統一
-
-            // タップ/クリック判定
             if (dist < 20) {
                 const now = new Date().getTime();
                 if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-                    player.jumpPunch(true); // ダブル
+                    player.jumpPunch(true); 
                     lastTapTime = 0;
                 } else {
-                    player.jumpPunch(false); // シングル
+                    player.jumpPunch(false); 
                     lastTapTime = now;
                 }
             }
         }
 
-        // イベントリスナー登録
         canvas.addEventListener('touchstart', handleStart, {passive: false});
         canvas.addEventListener('touchmove', handleMove, {passive: false});
         canvas.addEventListener('touchend', handleEnd, {passive: false});
