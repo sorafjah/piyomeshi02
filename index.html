@@ -2,8 +2,20 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ヒヨコにエサ 完成版</title>
+    <title>ピヨめし</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    
+    <!-- PWA設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ピヨめし">
+    <meta name="theme-color" content="#87CEEB">
+    
+    <!-- アイコン -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>">
+    <link rel="manifest" href='data:application/manifest+json,{"name":"ピヨめし","short_name":"ピヨめし","start_url":".","display":"standalone","background_color":"#f0f8ff","theme_color":"#87CEEB","icons":[{"src":"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>","sizes":"192x192","type":"image/svg+xml"}]}'>
+
     <style>
         body, html {
             margin: 0;
@@ -12,8 +24,10 @@
             width: 100%;
             height: 100%;
             background-color: #f0f8ff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
             touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         #gameCanvas {
@@ -25,10 +39,10 @@
 
         #uiContainer {
             position: absolute;
-            top: 20px;
+            top: env(safe-area-inset-top, 20px);
             left: 0;
             width: 100%;
-            padding: 0 20px;
+            padding: 10px 20px;
             box-sizing: border-box;
             display: flex;
             justify-content: space-between;
@@ -43,7 +57,7 @@
             align-items: center;
             background: rgba(0, 0, 0, 0.2);
             border-radius: 10px;
-            padding: 5px;
+            padding: 5px 10px;
         }
 
         #healthIcon {
@@ -52,30 +66,32 @@
         }
 
         #healthBarInner {
-            width: 150px;
-            height: 20px;
+            width: 120px;
+            height: 15px;
             background-color: #4CAF50;
-            border-radius: 5px;
+            border-radius: 8px;
             transition: width 0.1s linear, background-color 0.3s ease;
         }
 
         #scoreDisplay {
-            font-size: 28px;
-            font-weight: bold;
+            font-size: 24px;
+            font-weight: 900;
+            font-family: monospace;
         }
 
         #messageArea {
             position: absolute;
-            top: 80px;
+            top: 100px;
             width: 100%;
             text-align: center;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             color: #ff4500;
-            text-shadow: 1px 1px 0 #fff;
+            text-shadow: 2px 2px 0 #fff;
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.5s;
+            z-index: 5;
         }
 
         #gameOverScreen {
@@ -86,38 +102,41 @@
             transform: translate(-50%, -50%);
             background: rgba(255, 255, 255, 0.95);
             padding: 30px;
-            border-radius: 15px;
+            border-radius: 20px;
             text-align: center;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             z-index: 10;
+            min-width: 250px;
         }
 
         #gameOverScreen h2 {
             margin-top: 0;
-            font-size: 2.5em;
+            font-size: 2em;
             color: #d9534f;
         }
 
         #finalScore {
-            font-size: 1.8em;
+            font-size: 1.5em;
             margin: 20px 0;
             color: #333;
+            font-weight: bold;
         }
 
         #restartButton {
             font-size: 1.2em;
-            padding: 12px 25px;
+            padding: 15px 40px;
             background-color: #5cb85c;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 50px;
             cursor: pointer;
-            transition: background-color 0.2s;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.1s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            font-weight: bold;
         }
 
-        #restartButton:hover {
-            background-color: #4cae4c;
+        #restartButton:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -130,15 +149,15 @@
             <span id="healthIcon">💪</span>
             <div id="healthBarInner"></div>
         </div>
-        <div id="scoreDisplay">SCORE: 0</div>
+        <div id="scoreDisplay">0</div>
     </div>
     
-    <div id="messageArea">地面に落とすとダメージ！</div>
+    <div id="messageArea">バウンド中に打ち返せ！</div>
 
     <div id="gameOverScreen">
         <h2>GAME OVER</h2>
-        <div id="finalScore">FINAL SCORE: 0</div>
-        <button id="restartButton">リスタート</button>
+        <div id="finalScore">SCORE: 0</div>
+        <button id="restartButton">もう一回！</button>
     </div>
 
     <script>
@@ -179,12 +198,13 @@
         const PUNCH_COST = 2;
         const STRONG_PUNCH_COST = 6; 
         const EAT_HEAL = 20; 
-        const DAMAGE_ON_DROP = 10; 
+        const DAMAGE_ON_DROP = 15; 
         const GRAVITY = 0.6; 
         
-        // 調整: 出現頻度と落下速度
-        const FOOD_GRAVITY = 0.03; // ふわふわ感を維持
-        const FOOD_SPAWN_RATE = 2000; // 間隔を広げて出現数を抑制 (1.2秒 -> 2.0秒)
+        // ふんわり設定
+        // 重力を弱めて、滞空時間を長くする
+        const FOOD_GRAVITY = 0.04; 
+        const FOOD_SPAWN_RATE = 2000;
 
         // --- 2. ユーティリティ関数 ---
 
@@ -209,7 +229,7 @@
 
         class Player {
             constructor() {
-                this.size = 35; 
+                this.size = 40; 
                 this.radius = this.size / 2;
                 this.x = W / 2;
                 this.y = groundY - this.radius;
@@ -228,7 +248,6 @@
             }
 
             update() {
-                // 重力
                 if (this.isJumping) {
                     this.vy += GRAVITY;
                     this.y += this.vy;
@@ -242,7 +261,6 @@
                     this.y = groundY - this.radius;
                 }
 
-                // 画面端
                 if (this.x < this.radius) this.x = this.radius;
                 if (this.x > W - this.radius) this.x = W - this.radius;
             }
@@ -256,7 +274,7 @@
                 this.health = Math.max(0, Math.min(PLAYER_MAX_HEALTH, this.health));
                 
                 const healthPercent = this.health / PLAYER_MAX_HEALTH;
-                healthBar.style.width = `${healthPercent * 150}px`;
+                healthBar.style.width = `${healthPercent * 120}px`;
                 
                 if (healthPercent < 0.3) healthBar.style.backgroundColor = '#d9534f';
                 else if (healthPercent < 0.6) healthBar.style.backgroundColor = '#f0ad4e';
@@ -281,25 +299,36 @@
 
                 createParticle(this.x, this.y - 30, isStrong ? '💥' : '💨');
 
-                // パンチ当たり判定 (前回調整済み: 横に広く、縦は制限)
-                const rangeX = isStrong ? 70 : 50;
-                const rangeY_Up = isStrong ? 90 : 70;
-                const rangeY_Down = 20;
+                // 当たり判定
+                const hitX = this.x;
+                const hitY = this.y - 30; 
+                const punchRange = isStrong ? 100 : 80; 
 
                 foods.forEach(food => {
-                    const dx = Math.abs(food.x - this.x);
-                    const dy = food.y - this.y; 
+                    const dist = getDistance(hitX, hitY, food.x, food.y);
 
-                    if (dx < rangeX + food.radius) {
-                        if (dy > -rangeY_Up - food.radius && dy < rangeY_Down) {
-                            
-                            let pushX = (food.x - this.x) * 0.25;
-                            if (Math.abs(pushX) < 1) pushX = rand(-2, 2);
-                            const punchPowerY = isStrong ? -18 : -10; 
-                            
-                            food.punch(pushX, punchPowerY);
-                            createParticle(food.x, food.y, '💢');
-                        }
+                    if (dist < punchRange + food.radius && food.y < this.y + 20) {
+                        
+                        // 横方向のふんわり感
+                        let pushX = (food.x - this.x) * 0.2; // 係数を下げて横っ飛びを抑制
+                        if (Math.abs(pushX) < 2) pushX = rand(-2, 2);
+                        
+                        // 縦方向のふんわり感
+                        // 画面の高さ(H)に応じて、目標到達地点を設定
+                        // 通常パンチ: 画面の60%くらいの高さへ
+                        // 強パンチ: 画面の90%くらいの高さへ
+                        // v = sqrt(2 * g * h)
+                        const targetHeight = isStrong ? H * 0.9 : H * 0.6;
+                        
+                        // 現在位置からターゲットまでの高さ
+                        // (簡易的に地面からの高さで計算)
+                        const jumpH = Math.max(100, targetHeight); 
+                        const punchPowerY = -Math.sqrt(2 * FOOD_GRAVITY * jumpH);
+                        
+                        food.punch(pushX, punchPowerY);
+                        createParticle(food.x, food.y, '💢');
+                        
+                        if (navigator.vibrate) navigator.vibrate(isStrong ? 30 : 10);
                     }
                 });
             }
@@ -307,18 +336,16 @@
             eat() {
                 if (isGameOver) return;
                 
-                // 調整: 食べる判定をさらに緩和
-                // プレイヤーからかなり離れていても吸い込めるように (40 -> 80)
                 const eatBuffer = 80; 
 
                 for (let i = foods.length - 1; i >= 0; i--) {
                     const f = foods[i];
-                    const dist = getDistance(this.x, this.y, f.x, f.y);
+                    const dist = getDistance(this.x, this.y - 20, f.x, f.y);
                     
                     if (dist < this.radius + f.radius + eatBuffer) {
                         this.changeHealth(EAT_HEAL);
-                        createParticle(this.x, this.y - 20, '😋');
-                        createParticle(this.x, this.y - 40, '➕💖'); 
+                        createParticle(this.x, this.y - 40, '😋');
+                        createParticle(this.x, this.y - 60, '➕💖'); 
                         foods.splice(i, 1);
                         return; 
                     }
@@ -328,15 +355,16 @@
 
         class Food {
             constructor() {
-                this.radius = 13; 
+                this.radius = 15; 
                 this.x = rand(this.radius + 10, W - this.radius - 10);
                 this.y = -30;
                 this.vx = 0;
                 this.vy = randFloat(0.2, 0.8); 
-                this.emoji = ['🍎', '🍇', '🍞', '🥦', '🍔', '🍰'][rand(0, 5)];
+                this.emoji = ['🍎', '🍇', '🍞', '🥦', '🍔', '🍰', '🍙', '🍕'][rand(0, 7)];
                 this.rotation = 0;
                 this.rotSpeed = 0;
                 this.isPunched = false;
+                this.bounced = false; 
             }
 
             draw() {
@@ -365,23 +393,39 @@
                 this.x += this.vx;
                 this.y += this.vy;
                 this.rotation += this.rotSpeed;
+                this.vx *= 0.99; 
 
-                this.vx *= 0.99;
-
-                // 地面接触
+                // 地面接触判定
                 if (this.y > groundY - this.radius) {
-                    this.y = groundY - this.radius;
-                    this.vx = 0;
-                    player.changeHealth(-DAMAGE_ON_DROP);
-                    createParticle(this.x, this.y, '💔');
-                    return 'remove';
+                    if (!this.bounced) {
+                        this.y = groundY - this.radius;
+                        
+                        // バウンド計算：画面の半分(50%)の高さまで戻る初速を与える
+                        // v = sqrt(2gh)
+                        const bounceHeight = H * 0.5;
+                        this.vy = -Math.sqrt(2 * FOOD_GRAVITY * bounceHeight);
+                        
+                        this.vx = rand(-1, 1); // 横揺れは控えめに
+                        this.rotSpeed = rand(-0.2, 0.2);
+                        this.bounced = true;
+                        createParticle(this.x, this.y, '➰'); 
+                        return 'alive';
+                    } else {
+                        // 2回目でロスト
+                        this.y = groundY - this.radius;
+                        this.vx = 0;
+                        player.changeHealth(-DAMAGE_ON_DROP);
+                        createParticle(this.x, this.y, '💔');
+                        if (navigator.vibrate) navigator.vibrate(100);
+                        return 'remove';
+                    }
                 }
                 return 'alive';
             }
 
             punch(vx, vy) {
                 this.isPunched = true;
-                this.vx = vx + rand(-1, 1);
+                this.vx = vx; // すでに減衰された値を受け取る
                 this.vy = vy;
                 this.rotSpeed = rand(-0.1, 0.1);
             }
@@ -393,7 +437,7 @@
                 this.baseY = y;
                 this.x = x;
                 this.y = y;
-                this.size = 30;
+                this.size = 35;
                 this.radius = this.size / 2;
                 this.emoji = '🐦';
                 this.eatTimer = 0;
@@ -425,6 +469,7 @@
                         f.y = -999;
                         createParticle(this.x, this.y, '❤️');
                         updateScore(100);
+                        if (navigator.vibrate) navigator.vibrate(50);
                     }
                 });
             }
@@ -461,11 +506,11 @@
             isGameOver = false;
             foods = [];
             particles = [];
-            scoreDisplay.textContent = `SCORE: ${score}`;
+            scoreDisplay.textContent = score;
             gameOverScreen.style.display = 'none';
             uiContainer.style.display = 'flex';
             messageArea.style.opacity = 1;
-            setTimeout(() => { messageArea.style.opacity = 0; }, 3000);
+            setTimeout(() => { messageArea.style.opacity = 0; }, 4000);
 
             player = new Player();
             player.changeHealth(0);
@@ -480,7 +525,6 @@
 
             window.spawnTimer = setInterval(() => {
                 if (!isGameOver) {
-                    // 調整: いっぺんに出るのを1〜2個に制限
                     const count = rand(1, 2);
                     for(let i=0; i<count; i++) {
                         foods.push(new Food());
@@ -493,7 +537,7 @@
 
         function updateScore(pts) {
             score += pts;
-            scoreDisplay.textContent = `SCORE: ${score}`;
+            scoreDisplay.textContent = score;
         }
 
         function createParticle(x, y, e) {
@@ -623,13 +667,11 @@
             const diffX = endX - touchStartX;
             const dist = Math.sqrt(diffX*diffX + diffY*diffY);
 
-            // 上スワイプ (食べる)
             if (diffY < -50 && Math.abs(diffX) < 50) {
                 player.eat();
                 return;
             }
 
-            // タップ判定
             if (dist < 20) {
                 const now = new Date().getTime();
                 if (now - lastTapTime < DOUBLE_TAP_DELAY) {
