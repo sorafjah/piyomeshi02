@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ピヨめし - キャンディVer</title>
+    <title>ピヨめし - 調整版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     
     <!-- PWA設定 -->
@@ -27,6 +27,7 @@
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
+            cursor: pointer;
         }
 
         #gameCanvas {
@@ -83,7 +84,8 @@
             top: 100px;
             width: 100%;
             text-align: center;
-            font-size: 24px;
+            font-size: 18px; /* 少し小さくして複数行に対応 */
+            line-height: 1.6;
             font-weight: bold;
             color: #ff4500;
             text-shadow: 2px 2px 0 #fff;
@@ -91,6 +93,7 @@
             opacity: 0;
             transition: opacity 0.5s;
             z-index: 5;
+            white-space: nowrap;
         }
 
         #gameOverScreen {
@@ -151,7 +154,13 @@
         <div id="scoreDisplay">0</div>
     </div>
     
-    <div id="messageArea">ダブルタップで強パンチ！</div>
+    <!-- 指示文言の変更 -->
+    <div id="messageArea">
+        なぞって横移動<br>
+        タッチでパンチ<br>
+        ダブルタッチで強パンチ<br>
+        長押しは自分が食べて回復
+    </div>
 
     <div id="gameOverScreen">
         <h2>GAME OVER</h2>
@@ -184,11 +193,12 @@
         let birds = [];
         let particles = [];
 
-        // タッチ操作用
+        // 操作関連
         let touchStartX = 0;
         let touchStartY = 0;
         let lastTouchX = 0;
         let isTouching = false;
+        let touchStartTime = 0;
         let lastTapTime = 0;
         const DOUBLE_TAP_DELAY = 300;
 
@@ -196,13 +206,13 @@
         const PLAYER_MAX_HEALTH = 100;
         const PUNCH_COST = 2;
         const STRONG_PUNCH_COST = 6; 
-        const EAT_HEAL = 30; // 回復量UP (20 -> 30)
+        const EAT_HEAL = 30; 
         const DAMAGE_ON_DROP = 15; 
         const GRAVITY = 0.6; 
         
         const FOOD_GRAVITY = 0.04; 
         const FOOD_SPAWN_RATE = 1500;
-        const MAX_FOODS_ON_SCREEN = 3; // 画面内最大数
+        const MAX_FOODS_ON_SCREEN = 3; 
 
         // --- 2. ユーティリティ関数 ---
 
@@ -236,14 +246,13 @@
                 this.health = PLAYER_MAX_HEALTH;
                 this.emoji = '🕺';
                 this.isJumping = false;
-                this.isStrongJump = false; // 今のジャンプが強パンチかどうか
+                this.isStrongJump = false;
             }
 
             draw() {
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                // 強パンチ中はちょっと見た目を変える（オーラ）
                 if (this.isJumping && this.isStrongJump) {
                      ctx.shadowBlur = 10;
                      ctx.shadowColor = "orange";
@@ -251,7 +260,7 @@
                      ctx.shadowBlur = 0;
                 }
                 ctx.fillText(this.emoji, this.x, this.y);
-                ctx.shadowBlur = 0; // リセット
+                ctx.shadowBlur = 0; 
             }
 
             update() {
@@ -296,38 +305,28 @@
             jumpPunch(isStrong) {
                 if (isGameOver) return;
 
-                // 【ダブルパンチ改善】
-                // ジャンプ中であっても、今回の入力が「強パンチ」で、
-                // まだ「強パンチ状態」になっていないなら、追加入力として受け付ける。
                 if (this.isJumping) {
                     if (isStrong && !this.isStrongJump) {
-                        // 強パンチに昇格！
                         this.isStrongJump = true;
-                        this.changeHealth(-(STRONG_PUNCH_COST - PUNCH_COST)); // 差分コスト
-                        // 速度を上書きして再浮上
-                        this.vy = -12; // 空中ブースト
-                        createParticle(this.x, this.y - 40, '🔥'); // 強化エフェクト
-                    } else {
-                        // すでにジャンプ中なら何もしない
-                        return;
+                        this.changeHealth(-(STRONG_PUNCH_COST - PUNCH_COST));
+                        this.vy = -12; 
+                        createParticle(this.x, this.y - 40, '🔥'); 
                     }
                 } else {
-                    // 通常のジャンプ開始
                     const cost = isStrong ? STRONG_PUNCH_COST : PUNCH_COST;
                     this.changeHealth(-cost);
                     if (isGameOver) return; 
 
                     this.isJumping = true;
                     this.isStrongJump = isStrong;
-                    this.vy = isStrong ? -16 : -10; // 初期速度
+                    this.vy = isStrong ? -16 : -10; 
 
                     createParticle(this.x, this.y - 30, isStrong ? '💥' : '💨');
                 }
 
-                // --- 当たり判定 ---
                 const hitX = this.x;
                 const hitY = this.y - 30; 
-                const punchRange = isStrong ? 120 : 90; // さらに範囲拡大
+                const punchRange = isStrong ? 120 : 90; 
 
                 foods.forEach(food => {
                     const dist = getDistance(hitX, hitY, food.x, food.y);
@@ -337,12 +336,7 @@
                         let pushX = (food.x - this.x) * 0.2;
                         if (Math.abs(pushX) < 2) pushX = rand(-2, 2);
                         
-                        // 【パンチ高さ調整】
-                        // 高さを半分にするご要望に対応
-                        // 通常: 画面の30%の高さへ / 強: 画面の50%の高さへ
                         const targetHeight = this.isStrongJump ? H * 0.5 : H * 0.3;
-                        
-                        // 現在位置からターゲットまでの高さ
                         const jumpH = Math.max(50, targetHeight); 
                         const punchPowerY = -Math.sqrt(2 * FOOD_GRAVITY * jumpH);
                         
@@ -357,13 +351,10 @@
             eat() {
                 if (isGameOver) return;
                 
-                // 【回復判定の緩和】
-                // かなり広範囲を吸い込む (80 -> 100)
                 const eatBuffer = 100; 
 
                 for (let i = foods.length - 1; i >= 0; i--) {
                     const f = foods[i];
-                    // Y軸方向の判定を特に甘くする
                     const dx = Math.abs(this.x - f.x);
                     const dy = Math.abs((this.y - 30) - f.y);
                     const dist = Math.sqrt(dx*dx + dy*dy);
@@ -386,12 +377,11 @@
                 this.y = -30;
                 this.vx = 0;
                 this.vy = randFloat(0.2, 0.8); 
-                // 食パン削除、キャンディ追加
                 this.emoji = ['🍎', '🍇', '🥦', '🍔', '🍰', '🍙', '🍕', '🍬'][rand(0, 7)];
                 this.rotation = 0;
                 this.rotSpeed = 0;
                 this.isPunched = false;
-                this.bounced = false; 
+                this.bounced = false;
             }
 
             draw() {
@@ -406,7 +396,6 @@
             }
 
             update() {
-                // 壁反射
                 if (this.x < this.radius) {
                     this.x = this.radius;
                     this.vx *= -0.8;
@@ -415,19 +404,21 @@
                     this.vx *= -0.8;
                 }
 
-                this.vy += FOOD_GRAVITY; 
-                
-                this.x += this.vx;
-                this.y += this.vy;
-                this.rotation += this.rotSpeed;
-                this.vx *= 0.99; 
+                // 地面に接地していない、または既に跳ねた後は通常通り動く
+                if (this.y < groundY - this.radius || this.bounced) {
+                    this.vy += FOOD_GRAVITY; 
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.rotation += this.rotSpeed;
+                    this.vx *= 0.99; 
+                }
 
                 // 地面接触判定
-                if (this.y > groundY - this.radius) {
+                if (this.y >= groundY - this.radius) {
                     if (!this.bounced) {
+                        // 接地処理 - 即時バウンドに変更
                         this.y = groundY - this.radius;
                         
-                        // バウンド計算：画面の半分(50%)の高さまで戻る
                         const bounceHeight = H * 0.5;
                         this.vy = -Math.sqrt(2 * FOOD_GRAVITY * bounceHeight);
                         
@@ -437,7 +428,7 @@
                         createParticle(this.x, this.y, '➰'); 
                         return 'alive';
                     } else {
-                        // 2回目でロスト
+                        // 2回目でロスト（ここは即死でOK）
                         this.y = groundY - this.radius;
                         this.vx = 0;
                         player.changeHealth(-DAMAGE_ON_DROP);
@@ -535,8 +526,10 @@
             scoreDisplay.textContent = score;
             gameOverScreen.style.display = 'none';
             uiContainer.style.display = 'flex';
+            
+            // メッセージ表示時間を少し長く (4000 -> 5000)
             messageArea.style.opacity = 1;
-            setTimeout(() => { messageArea.style.opacity = 0; }, 4000);
+            setTimeout(() => { messageArea.style.opacity = 0; }, 5000);
 
             player = new Player();
             player.changeHealth(0);
@@ -551,12 +544,9 @@
 
             window.spawnTimer = setInterval(() => {
                 if (!isGameOver) {
-                    // 【出現数制限】
-                    // 画面上の食べ物が3個未満のときだけ追加する
                     if (foods.length < MAX_FOODS_ON_SCREEN) {
                         const count = rand(1, 2);
                         for(let i=0; i<count; i++) {
-                            // さらに制限：追加後も最大数を超えないように
                             if (foods.length >= MAX_FOODS_ON_SCREEN) break;
                             foods.push(new Food());
                         }
@@ -651,10 +641,11 @@
                 if (particles[i].life <= 0) particles.splice(i, 1);
             }
 
-            // 【ホールドで食べる処理】
-            // タッチ中かつ移動していない（ホールド）場合も食べる判定を行う
+            // ホールドで食べる処理
             if (isTouching && !isSwiping) {
-                 player.eat();
+                 if (Date.now() - touchStartTime > 300) {
+                    player.eat();
+                 }
             }
 
             window.gameLoopId = requestAnimationFrame(loop);
@@ -663,69 +654,99 @@
         function gameOver() {
             isGameOver = true;
             clearInterval(window.spawnTimer);
-            finalScoreDisplay.textContent = `FINAL SCORE: ${score}`;
+            // 変更: SCORE 表示に修正
+            finalScoreDisplay.textContent = `SCORE: ${score}`;
             gameOverScreen.style.display = 'block';
             uiContainer.style.display = 'none';
         }
 
-        // --- 5. イベント ---
+        // --- 5. イベント (マウス対応統合版) ---
 
         restartButton.addEventListener('click', init);
 
-        let isSwiping = false; // スワイプ判定用
+        let isSwiping = false; 
 
-        canvas.addEventListener('touchstart', e => {
+        // 座標正規化
+        function getPoint(e) {
+            if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        // 開始 (TouchStart / MouseDown)
+        function handleStart(e) {
             e.preventDefault();
             if (isGameOver) return;
-            const t = e.touches[0];
-            touchStartX = t.clientX;
-            touchStartY = t.clientY;
-            lastTouchX = t.clientX;
-            isTouching = true;
-            isSwiping = false; // リセット
-        }, {passive: false});
-
-        canvas.addEventListener('touchmove', e => {
-            e.preventDefault();
-            if (isGameOver || !isTouching) return;
-            const t = e.touches[0];
             
-            const deltaX = t.clientX - lastTouchX;
-            if (Math.abs(deltaX) > 2) isSwiping = true; // 少しでも動いたらスワイプとみなす
+            const p = getPoint(e);
+            touchStartX = p.x;
+            touchStartY = p.y;
+            lastTouchX = p.x;
+            isTouching = true;
+            isSwiping = false; 
+            touchStartTime = Date.now();
+        }
+
+        // 移動 (TouchMove / MouseMove)
+        function handleMove(e) {
+            e.preventDefault();
+            // マウスの場合、押してなければ無視
+            if (e.type === 'mousemove' && !isTouching) return;
+            if (isGameOver || !isTouching) return;
+
+            const p = getPoint(e);
+            const deltaX = p.x - lastTouchX;
+            if (Math.abs(deltaX) > 2) isSwiping = true; 
 
             player.move(deltaX);
-            
-            lastTouchX = t.clientX;
-        }, {passive: false});
+            lastTouchX = p.x;
+        }
 
-        canvas.addEventListener('touchend', e => {
+        // 終了 (TouchEnd / MouseUp)
+        function handleEnd(e) {
             e.preventDefault();
             if (isGameOver) return;
+            
             isTouching = false;
 
-            const t = e.changedTouches[0];
-            const endX = t.clientX;
-            const endY = t.clientY;
+            // 終了座標の取得
+            let endX, endY;
+            if (e.changedTouches) {
+                endX = e.changedTouches[0].clientX;
+                endY = e.changedTouches[0].clientY;
+            } else {
+                endX = e.clientX;
+                endY = e.clientY;
+            }
+
             const diffY = endY - touchStartY;
             const diffX = endX - touchStartX;
             const dist = Math.sqrt(diffX*diffX + diffY*diffY);
 
-            if (diffY < -50 && Math.abs(diffX) < 50) {
-                player.eat();
-                return;
-            }
+            // 【変更】上スワイプでの回復を削除
+            // ホールドでの回復のみに統一
 
+            // タップ/クリック判定
             if (dist < 20) {
                 const now = new Date().getTime();
                 if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-                    player.jumpPunch(true); // ダブルタップ（強パンチ）
+                    player.jumpPunch(true); // ダブル
                     lastTapTime = 0;
                 } else {
-                    player.jumpPunch(false); // シングルタップ
+                    player.jumpPunch(false); // シングル
                     lastTapTime = now;
                 }
             }
-        }, {passive: false});
+        }
+
+        // イベントリスナー登録
+        canvas.addEventListener('touchstart', handleStart, {passive: false});
+        canvas.addEventListener('touchmove', handleMove, {passive: false});
+        canvas.addEventListener('touchend', handleEnd, {passive: false});
+
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('mouseleave', () => isTouching = false);
 
         window.addEventListener('resize', () => {
             W = canvas.width = window.innerWidth;
