@@ -12,8 +12,8 @@
     <meta name="theme-color" content="#87CEEB">
     
     <!-- アイコン -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐥</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐥</text></svg>">
 
     <style>
         body, html {
@@ -81,10 +81,11 @@
 
         #messageArea {
             position: absolute;
-            top: 100px;
+            /* 位置を少し下に変更 (100px -> 140px) */
+            top: 140px;
             width: 100%;
             text-align: center;
-            font-size: 18px; /* 少し小さくして複数行に対応 */
+            font-size: 18px; 
             line-height: 1.6;
             font-weight: bold;
             color: #ff4500;
@@ -159,7 +160,7 @@
         なぞって横移動<br>
         タッチでパンチ<br>
         ダブルタッチで強パンチ<br>
-        長押しは自分が食べて回復
+        長押しで自分が食べて体力回復
     </div>
 
     <div id="gameOverScreen">
@@ -382,11 +383,20 @@
                 this.rotSpeed = 0;
                 this.isPunched = false;
                 this.bounced = false;
+                
+                // --- ヒットストップ用変数 ---
+                this.pendingVx = 0;
+                this.pendingVy = 0;
+                this.hitStop = 0; // ヒットストップ中のフレーム数
             }
 
             draw() {
                 ctx.save();
                 ctx.translate(this.x, this.y);
+                // ヒットストップ中はブルブル震える
+                if (this.hitStop > 0) {
+                    ctx.translate(rand(-2, 2), rand(-2, 2));
+                }
                 ctx.rotate(this.rotation);
                 ctx.font = `${this.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
@@ -396,6 +406,19 @@
             }
 
             update() {
+                // --- ヒットストップ処理 ---
+                if (this.hitStop > 0) {
+                    this.hitStop--;
+                    if (this.hitStop === 0) {
+                        // ストップ終了、発射
+                        this.vx = this.pendingVx;
+                        this.vy = this.pendingVy;
+                        this.rotSpeed = rand(-0.2, 0.2);
+                        this.isPunched = true;
+                    }
+                    return 'alive'; // 動きを止めてリターン
+                }
+
                 if (this.x < this.radius) {
                     this.x = this.radius;
                     this.vx *= -0.8;
@@ -416,7 +439,7 @@
                 // 地面接触判定
                 if (this.y >= groundY - this.radius) {
                     if (!this.bounced) {
-                        // 接地処理 - 即時バウンドに変更
+                        // 接地処理 - 即時バウンド
                         this.y = groundY - this.radius;
                         
                         const bounceHeight = H * 0.5;
@@ -428,7 +451,7 @@
                         createParticle(this.x, this.y, '➰'); 
                         return 'alive';
                     } else {
-                        // 2回目でロスト（ここは即死でOK）
+                        // 2回目でロスト
                         this.y = groundY - this.radius;
                         this.vx = 0;
                         player.changeHealth(-DAMAGE_ON_DROP);
@@ -441,10 +464,11 @@
             }
 
             punch(vx, vy) {
-                this.isPunched = true;
-                this.vx = vx; 
-                this.vy = vy;
-                this.rotSpeed = rand(-0.1, 0.1);
+                // ヒットストップ開始
+                this.hitStop = 6; // 約0.1秒の溜め
+                this.pendingVx = vx;
+                this.pendingVy = vy;
+                // まだ isPunched = true にしない（動いてから）
             }
         }
 
@@ -456,7 +480,7 @@
                 this.y = y;
                 this.size = 35;
                 this.radius = this.size / 2;
-                this.emoji = '🐦';
+                this.emoji = '🐥'; // ひよこに変更
                 this.eatTimer = 0;
                 this.swingPhase = rand(0, 100);
             }
@@ -481,6 +505,7 @@
                 this.y = this.baseY + Math.cos(this.swingPhase * 0.7) * 5;
 
                 foods.forEach(f => {
+                    // パンチされて飛んでいる状態(isPunched)のものだけ食べる
                     if (f.isPunched && circleCollision(this, f)) {
                         this.eatTimer = 30;
                         f.y = -999;
@@ -527,7 +552,6 @@
             gameOverScreen.style.display = 'none';
             uiContainer.style.display = 'flex';
             
-            // メッセージ表示時間を少し長く (4000 -> 5000)
             messageArea.style.opacity = 1;
             setTimeout(() => { messageArea.style.opacity = 0; }, 5000);
 
