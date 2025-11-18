@@ -178,13 +178,13 @@
         const PLAYER_MAX_HEALTH = 100;
         const PUNCH_COST = 2;
         const STRONG_PUNCH_COST = 6; 
-        const EAT_HEAL = 20; // 回復しやすく
-        const DAMAGE_ON_DROP = 10; // 落とした時のダメージ
+        const EAT_HEAL = 20; 
+        const DAMAGE_ON_DROP = 10; 
         const GRAVITY = 0.6; 
         
-        // 調整: 落下速度をさらに遅く
-        const FOOD_GRAVITY = 0.02; // かなりふわふわ
-        const FOOD_SPAWN_RATE = 1200; // 間隔
+        // 調整: 出現頻度と落下速度
+        const FOOD_GRAVITY = 0.03; // ふわふわ感を維持
+        const FOOD_SPAWN_RATE = 2000; // 間隔を広げて出現数を抑制 (1.2秒 -> 2.0秒)
 
         // --- 2. ユーティリティ関数 ---
 
@@ -209,7 +209,7 @@
 
         class Player {
             constructor() {
-                this.size = 35; // 小さめ
+                this.size = 35; 
                 this.radius = this.size / 2;
                 this.x = W / 2;
                 this.y = groundY - this.radius;
@@ -271,37 +271,28 @@
                 if (isGameOver) return;
                 if (this.isJumping) return;
 
-                // 体力チェック（足りなくても打てるが、その後死ぬ）
                 const cost = isStrong ? STRONG_PUNCH_COST : PUNCH_COST;
                 this.changeHealth(-cost);
                 
-                if (isGameOver) return; // コスト支払いで死んだら終わり
+                if (isGameOver) return; 
 
                 this.isJumping = true;
                 this.vy = isStrong ? -18 : -12;
 
                 createParticle(this.x, this.y - 30, isStrong ? '💥' : '💨');
 
-                // --- 当たり判定の再調整 ---
-                // 横に広く、縦にはシビアに。
-                // プレイヤーの中心から判定を行う。
-                // 横範囲: 強パンチなら左右60px, 通常45px
-                // 縦範囲: 上80px, 下20px (足元のは拾えない)
-                
+                // パンチ当たり判定 (前回調整済み: 横に広く、縦は制限)
                 const rangeX = isStrong ? 70 : 50;
                 const rangeY_Up = isStrong ? 90 : 70;
                 const rangeY_Down = 20;
 
                 foods.forEach(food => {
                     const dx = Math.abs(food.x - this.x);
-                    const dy = food.y - this.y; // 食べ物が上ならマイナス
+                    const dy = food.y - this.y; 
 
-                    // 楕円的な簡易判定 (矩形でまず弾く)
                     if (dx < rangeX + food.radius) {
-                        // 高さチェック: プレイヤーより少し下 〜 定められた高さまで
                         if (dy > -rangeY_Up - food.radius && dy < rangeY_Down) {
                             
-                            // パンチヒット
                             let pushX = (food.x - this.x) * 0.25;
                             if (Math.abs(pushX) < 1) pushX = rand(-2, 2);
                             const punchPowerY = isStrong ? -18 : -10; 
@@ -316,7 +307,10 @@
             eat() {
                 if (isGameOver) return;
                 
-                const eatBuffer = 40;
+                // 調整: 食べる判定をさらに緩和
+                // プレイヤーからかなり離れていても吸い込めるように (40 -> 80)
+                const eatBuffer = 80; 
+
                 for (let i = foods.length - 1; i >= 0; i--) {
                     const f = foods[i];
                     const dist = getDistance(this.x, this.y, f.x, f.y);
@@ -334,11 +328,10 @@
 
         class Food {
             constructor() {
-                this.radius = 13; // さらに小さく
+                this.radius = 13; 
                 this.x = rand(this.radius + 10, W - this.radius - 10);
                 this.y = -30;
                 this.vx = 0;
-                // 初期速度を極限まで遅く
                 this.vy = randFloat(0.2, 0.8); 
                 this.emoji = ['🍎', '🍇', '🍞', '🥦', '🍔', '🍰'][rand(0, 5)];
                 this.rotation = 0;
@@ -379,7 +372,6 @@
                 if (this.y > groundY - this.radius) {
                     this.y = groundY - this.radius;
                     this.vx = 0;
-                    // ロスト条件: 地面に落ちたらダメージ
                     player.changeHealth(-DAMAGE_ON_DROP);
                     createParticle(this.x, this.y, '💔');
                     return 'remove';
@@ -401,7 +393,7 @@
                 this.baseY = y;
                 this.x = x;
                 this.y = y;
-                this.size = 30; // 小さく
+                this.size = 30;
                 this.radius = this.size / 2;
                 this.emoji = '🐦';
                 this.eatTimer = 0;
@@ -472,7 +464,7 @@
             scoreDisplay.textContent = `SCORE: ${score}`;
             gameOverScreen.style.display = 'none';
             uiContainer.style.display = 'flex';
-            messageArea.style.opacity = 1; // ルール表示
+            messageArea.style.opacity = 1;
             setTimeout(() => { messageArea.style.opacity = 0; }, 3000);
 
             player = new Player();
@@ -488,8 +480,8 @@
 
             window.spawnTimer = setInterval(() => {
                 if (!isGameOver) {
-                    // いっぺんに1〜3個出す
-                    const count = rand(1, 3);
+                    // 調整: いっぺんに出るのを1〜2個に制限
+                    const count = rand(1, 2);
                     for(let i=0; i<count; i++) {
                         foods.push(new Food());
                     }
