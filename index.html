@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ピヨめし</title>
+    <title>ピヨめし - キャンディVer</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     
     <!-- PWA設定 -->
@@ -14,7 +14,6 @@
     <!-- アイコン -->
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>">
-    <link rel="manifest" href='data:application/manifest+json,{"name":"ピヨめし","short_name":"ピヨめし","start_url":".","display":"standalone","background_color":"#f0f8ff","theme_color":"#87CEEB","icons":[{"src":"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐦</text></svg>","sizes":"192x192","type":"image/svg+xml"}]}'>
 
     <style>
         body, html {
@@ -152,7 +151,7 @@
         <div id="scoreDisplay">0</div>
     </div>
     
-    <div id="messageArea">バウンド中に打ち返せ！</div>
+    <div id="messageArea">ダブルタップで強パンチ！</div>
 
     <div id="gameOverScreen">
         <h2>GAME OVER</h2>
@@ -197,14 +196,13 @@
         const PLAYER_MAX_HEALTH = 100;
         const PUNCH_COST = 2;
         const STRONG_PUNCH_COST = 6; 
-        const EAT_HEAL = 20; 
+        const EAT_HEAL = 30; // 回復量UP (20 -> 30)
         const DAMAGE_ON_DROP = 15; 
         const GRAVITY = 0.6; 
         
-        // ふんわり設定
-        // 重力を弱めて、滞空時間を長くする
         const FOOD_GRAVITY = 0.04; 
-        const FOOD_SPAWN_RATE = 2000;
+        const FOOD_SPAWN_RATE = 1500;
+        const MAX_FOODS_ON_SCREEN = 3; // 画面内最大数
 
         // --- 2. ユーティリティ関数 ---
 
@@ -238,13 +236,22 @@
                 this.health = PLAYER_MAX_HEALTH;
                 this.emoji = '🕺';
                 this.isJumping = false;
+                this.isStrongJump = false; // 今のジャンプが強パンチかどうか
             }
 
             draw() {
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                // 強パンチ中はちょっと見た目を変える（オーラ）
+                if (this.isJumping && this.isStrongJump) {
+                     ctx.shadowBlur = 10;
+                     ctx.shadowColor = "orange";
+                } else {
+                     ctx.shadowBlur = 0;
+                }
                 ctx.fillText(this.emoji, this.x, this.y);
+                ctx.shadowBlur = 0; // リセット
             }
 
             update() {
@@ -256,6 +263,7 @@
                         this.y = groundY - this.radius;
                         this.vy = 0;
                         this.isJumping = false;
+                        this.isStrongJump = false;
                     }
                 } else {
                     this.y = groundY - this.radius;
@@ -287,48 +295,61 @@
 
             jumpPunch(isStrong) {
                 if (isGameOver) return;
-                if (this.isJumping) return;
 
-                const cost = isStrong ? STRONG_PUNCH_COST : PUNCH_COST;
-                this.changeHealth(-cost);
-                
-                if (isGameOver) return; 
+                // 【ダブルパンチ改善】
+                // ジャンプ中であっても、今回の入力が「強パンチ」で、
+                // まだ「強パンチ状態」になっていないなら、追加入力として受け付ける。
+                if (this.isJumping) {
+                    if (isStrong && !this.isStrongJump) {
+                        // 強パンチに昇格！
+                        this.isStrongJump = true;
+                        this.changeHealth(-(STRONG_PUNCH_COST - PUNCH_COST)); // 差分コスト
+                        // 速度を上書きして再浮上
+                        this.vy = -12; // 空中ブースト
+                        createParticle(this.x, this.y - 40, '🔥'); // 強化エフェクト
+                    } else {
+                        // すでにジャンプ中なら何もしない
+                        return;
+                    }
+                } else {
+                    // 通常のジャンプ開始
+                    const cost = isStrong ? STRONG_PUNCH_COST : PUNCH_COST;
+                    this.changeHealth(-cost);
+                    if (isGameOver) return; 
 
-                this.isJumping = true;
-                this.vy = isStrong ? -18 : -12;
+                    this.isJumping = true;
+                    this.isStrongJump = isStrong;
+                    this.vy = isStrong ? -16 : -10; // 初期速度
 
-                createParticle(this.x, this.y - 30, isStrong ? '💥' : '💨');
+                    createParticle(this.x, this.y - 30, isStrong ? '💥' : '💨');
+                }
 
-                // 当たり判定
+                // --- 当たり判定 ---
                 const hitX = this.x;
                 const hitY = this.y - 30; 
-                const punchRange = isStrong ? 100 : 80; 
+                const punchRange = isStrong ? 120 : 90; // さらに範囲拡大
 
                 foods.forEach(food => {
                     const dist = getDistance(hitX, hitY, food.x, food.y);
 
-                    if (dist < punchRange + food.radius && food.y < this.y + 20) {
+                    if (dist < punchRange + food.radius && food.y < this.y + 40) {
                         
-                        // 横方向のふんわり感
-                        let pushX = (food.x - this.x) * 0.2; // 係数を下げて横っ飛びを抑制
+                        let pushX = (food.x - this.x) * 0.2;
                         if (Math.abs(pushX) < 2) pushX = rand(-2, 2);
                         
-                        // 縦方向のふんわり感
-                        // 画面の高さ(H)に応じて、目標到達地点を設定
-                        // 通常パンチ: 画面の60%くらいの高さへ
-                        // 強パンチ: 画面の90%くらいの高さへ
-                        // v = sqrt(2 * g * h)
-                        const targetHeight = isStrong ? H * 0.9 : H * 0.6;
+                        // 【パンチ高さ調整】
+                        // 高さを半分にするご要望に対応
+                        // 通常: 画面の30%の高さへ / 強: 画面の50%の高さへ
+                        const targetHeight = this.isStrongJump ? H * 0.5 : H * 0.3;
                         
                         // 現在位置からターゲットまでの高さ
-                        // (簡易的に地面からの高さで計算)
-                        const jumpH = Math.max(100, targetHeight); 
+                        const jumpH = Math.max(50, targetHeight); 
                         const punchPowerY = -Math.sqrt(2 * FOOD_GRAVITY * jumpH);
                         
                         food.punch(pushX, punchPowerY);
                         createParticle(food.x, food.y, '💢');
                         
-                        if (navigator.vibrate) navigator.vibrate(isStrong ? 30 : 10);
+                        if (navigator.vibrate) navigator.vibrate(this.isStrongJump ? 30 : 10);
                     }
                 });
             }
@@ -336,11 +357,16 @@
             eat() {
                 if (isGameOver) return;
                 
-                const eatBuffer = 80; 
+                // 【回復判定の緩和】
+                // かなり広範囲を吸い込む (80 -> 100)
+                const eatBuffer = 100; 
 
                 for (let i = foods.length - 1; i >= 0; i--) {
                     const f = foods[i];
-                    const dist = getDistance(this.x, this.y - 20, f.x, f.y);
+                    // Y軸方向の判定を特に甘くする
+                    const dx = Math.abs(this.x - f.x);
+                    const dy = Math.abs((this.y - 30) - f.y);
+                    const dist = Math.sqrt(dx*dx + dy*dy);
                     
                     if (dist < this.radius + f.radius + eatBuffer) {
                         this.changeHealth(EAT_HEAL);
@@ -360,7 +386,8 @@
                 this.y = -30;
                 this.vx = 0;
                 this.vy = randFloat(0.2, 0.8); 
-                this.emoji = ['🍎', '🍇', '🍞', '🥦', '🍔', '🍰', '🍙', '🍕'][rand(0, 7)];
+                // 食パン削除、キャンディ追加
+                this.emoji = ['🍎', '🍇', '🥦', '🍔', '🍰', '🍙', '🍕', '🍬'][rand(0, 7)];
                 this.rotation = 0;
                 this.rotSpeed = 0;
                 this.isPunched = false;
@@ -400,12 +427,11 @@
                     if (!this.bounced) {
                         this.y = groundY - this.radius;
                         
-                        // バウンド計算：画面の半分(50%)の高さまで戻る初速を与える
-                        // v = sqrt(2gh)
+                        // バウンド計算：画面の半分(50%)の高さまで戻る
                         const bounceHeight = H * 0.5;
                         this.vy = -Math.sqrt(2 * FOOD_GRAVITY * bounceHeight);
                         
-                        this.vx = rand(-1, 1); // 横揺れは控えめに
+                        this.vx = rand(-1, 1);
                         this.rotSpeed = rand(-0.2, 0.2);
                         this.bounced = true;
                         createParticle(this.x, this.y, '➰'); 
@@ -425,7 +451,7 @@
 
             punch(vx, vy) {
                 this.isPunched = true;
-                this.vx = vx; // すでに減衰された値を受け取る
+                this.vx = vx; 
                 this.vy = vy;
                 this.rotSpeed = rand(-0.1, 0.1);
             }
@@ -525,9 +551,15 @@
 
             window.spawnTimer = setInterval(() => {
                 if (!isGameOver) {
-                    const count = rand(1, 2);
-                    for(let i=0; i<count; i++) {
-                        foods.push(new Food());
+                    // 【出現数制限】
+                    // 画面上の食べ物が3個未満のときだけ追加する
+                    if (foods.length < MAX_FOODS_ON_SCREEN) {
+                        const count = rand(1, 2);
+                        for(let i=0; i<count; i++) {
+                            // さらに制限：追加後も最大数を超えないように
+                            if (foods.length >= MAX_FOODS_ON_SCREEN) break;
+                            foods.push(new Food());
+                        }
                     }
                 }
             }, FOOD_SPAWN_RATE);
@@ -619,6 +651,12 @@
                 if (particles[i].life <= 0) particles.splice(i, 1);
             }
 
+            // 【ホールドで食べる処理】
+            // タッチ中かつ移動していない（ホールド）場合も食べる判定を行う
+            if (isTouching && !isSwiping) {
+                 player.eat();
+            }
+
             window.gameLoopId = requestAnimationFrame(loop);
         }
 
@@ -634,6 +672,8 @@
 
         restartButton.addEventListener('click', init);
 
+        let isSwiping = false; // スワイプ判定用
+
         canvas.addEventListener('touchstart', e => {
             e.preventDefault();
             if (isGameOver) return;
@@ -642,6 +682,7 @@
             touchStartY = t.clientY;
             lastTouchX = t.clientX;
             isTouching = true;
+            isSwiping = false; // リセット
         }, {passive: false});
 
         canvas.addEventListener('touchmove', e => {
@@ -650,6 +691,8 @@
             const t = e.touches[0];
             
             const deltaX = t.clientX - lastTouchX;
+            if (Math.abs(deltaX) > 2) isSwiping = true; // 少しでも動いたらスワイプとみなす
+
             player.move(deltaX);
             
             lastTouchX = t.clientX;
@@ -675,10 +718,10 @@
             if (dist < 20) {
                 const now = new Date().getTime();
                 if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-                    player.jumpPunch(true);
+                    player.jumpPunch(true); // ダブルタップ（強パンチ）
                     lastTapTime = 0;
                 } else {
-                    player.jumpPunch(false);
+                    player.jumpPunch(false); // シングルタップ
                     lastTapTime = now;
                 }
             }
