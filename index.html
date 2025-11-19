@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ピヨめし - ライフVer</title>
+    <title>ピヨめし - ゆっくり調整版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     
     <!-- PWA設定 -->
@@ -50,11 +50,34 @@
             z-index: 10;
         }
 
-        #lifeContainer {
-            font-size: 32px;
+        #statusArea {
             display: flex;
+            flex-direction: column;
+            align-items: flex-start;
             gap: 5px;
+        }
+
+        #lifeContainer {
+            font-size: 28px;
+            letter-spacing: 2px;
             filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));
+            height: 35px;
+        }
+
+        #healthBarContainer {
+            width: 150px;
+            height: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+
+        #healthBarInner {
+            width: 100%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.2s, background-color 0.2s;
         }
 
         #scoreDisplay {
@@ -133,7 +156,12 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="uiContainer">
-        <div id="lifeContainer">❤️❤️❤️</div>
+        <div id="statusArea">
+            <div id="lifeContainer">❤️❤️❤️</div>
+            <div id="healthBarContainer">
+                <div id="healthBarInner"></div>
+            </div>
+        </div>
         <div id="scoreDisplay">0</div>
     </div>
     
@@ -158,6 +186,7 @@
         const ctx = canvas.getContext('2d');
 
         const lifeContainer = document.getElementById('lifeContainer');
+        const healthBar = document.getElementById('healthBarInner');
         const scoreDisplay = document.getElementById('scoreDisplay');
         const messageArea = document.getElementById('messageArea');
         const gameOverScreen = document.getElementById('gameOverScreen');
@@ -188,10 +217,19 @@
 
         // ゲーム設定
         const MAX_LIVES = 3;
-        const GRAVITY = 0.6; 
-        const FOOD_GRAVITY = 0.04; 
-        const FOOD_SPAWN_RATE = 1200;
+        const MAX_HEALTH = 100;
+        
+        // ★スピード調整：全体的にゆっくりに
+        const GRAVITY = 0.4; // 0.6 -> 0.4
+        const FOOD_GRAVITY = 0.02; // 0.04 -> 0.02
+        const FOOD_SPAWN_RATE = 1500; // 間隔も少し広げる
         const MAX_FOODS_ON_SCREEN = 4; 
+
+        // ダメージ設定
+        const DMG_DROP = 20;
+        const DMG_DOG = 30;
+        const DMG_LIGHTNING = 25;
+        const HEAL_FOOD = 30;
 
         // --- 2. ユーティリティ関数 ---
 
@@ -223,25 +261,55 @@
                 this.vx = 0;
                 this.vy = 0;
                 this.lives = MAX_LIVES;
+                this.health = MAX_HEALTH;
                 this.emoji = '🕺';
                 this.isJumping = false;
                 this.isStrongJump = false;
                 
                 this.lastMoveDir = 0;
                 this.invincibleTimer = 0; // 無敵時間
+                this.stunTimer = 0; // 麻痺時間
+                
+                // ノックアウト（やられ）状態
+                this.isKnockedOut = false;
             }
 
             draw() {
-                if (this.invincibleTimer > 0) {
-                    this.invincibleTimer--;
-                    if (Math.floor(Date.now() / 100) % 2 === 0) return; // 点滅
+                if (this.isKnockedOut) {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(Date.now() * 0.02); // やられてる時は回転
+                    ctx.font = `${this.size}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('😵', 0, 0); // やられ顔
+                    ctx.restore();
+                    return;
                 }
 
                 ctx.save();
                 ctx.translate(this.x, this.y);
 
+                // 麻痺中の震え
+                if (this.stunTimer > 0) {
+                    ctx.translate(rand(-3, 3), rand(-3, 3));
+                    ctx.fillStyle = "yellow";
+                    ctx.globalAlpha = 0.5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                }
+
+                // 無敵中の点滅
+                if (this.invincibleTimer > 0) {
+                    if (Math.floor(Date.now() / 100) % 2 === 0) {
+                         ctx.globalAlpha = 0.5;
+                    }
+                }
+
                 // 移動中の揺れ
-                if (Math.abs(this.lastMoveDir) > 0.1 && !this.isJumping) {
+                if (Math.abs(this.lastMoveDir) > 0.1 && !this.isJumping && this.stunTimer <= 0) {
                     ctx.rotate(Math.sin(Date.now() * 0.015) * 0.15);
                 }
 
@@ -263,6 +331,23 @@
             }
 
             update() {
+                // ノックアウト（死亡演出）中
+                if (this.isKnockedOut) {
+                    this.vy += GRAVITY;
+                    this.y += this.vy;
+                    
+                    // 画面外に落ちたらリセット
+                    if (this.y > H + 100) {
+                        this.respawn();
+                    }
+                    return;
+                }
+
+                if (this.invincibleTimer > 0) this.invincibleTimer--;
+                if (this.stunTimer > 0) {
+                    this.stunTimer--;
+                }
+
                 // 重力
                 this.vy += GRAVITY;
                 this.y += this.vy;
@@ -279,7 +364,7 @@
                 if (this.y > groundY - this.radius) {
                     this.y = groundY - this.radius;
                     if (this.vy > 4) {
-                        this.vy = -this.vy * 0.2; // 少しだけ跳ねる
+                        this.vy = -this.vy * 0.2; 
                     } else {
                         this.vy = 0;
                         this.isJumping = false;
@@ -299,59 +384,94 @@
             }
 
             move(dx) {
-                this.x += dx;
-                this.lastMoveDir = dx;
+                if (this.isKnockedOut || this.stunTimer > 0) return;
+                // ★移動速度も少しゆっくりに (0.7倍)
+                this.x += dx * 0.7;
+                this.lastMoveDir = dx * 0.7;
             }
 
-            damage() {
-                if (this.invincibleTimer > 0) return;
+            damageHealth(amount) {
+                if (this.isKnockedOut || this.invincibleTimer > 0) return;
+                
+                this.health -= amount;
+                updateStatusDisplay();
+                createParticle(this.x, this.y, '💢');
+                if (navigator.vibrate) navigator.vibrate(200);
+
+                if (this.health <= 0) {
+                    this.loseLife();
+                }
+            }
+
+            loseLife() {
+                if (this.isKnockedOut) return;
+                // 無敵貫通でライフを減らす場合（爆弾など）もここを通る
+
                 this.lives--;
-                this.invincibleTimer = 90; // 1.5秒無敵
-                updateLifeDisplay();
-                createParticle(this.x, this.y, '💥');
-                if (navigator.vibrate) navigator.vibrate(300);
+                updateStatusDisplay();
 
                 if (this.lives <= 0) {
                     gameOver();
+                } else {
+                    // ★やられ演出：ぴょーんと飛んで下に落ちる
+                    this.isKnockedOut = true;
+                    this.vy = -12; // 上へ跳ねる
+                    createParticle(this.x, this.y, '😱');
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 }
+            }
+
+            respawn() {
+                // 仕切り直し
+                this.isKnockedOut = false;
+                this.health = MAX_HEALTH;
+                this.stunTimer = 0;
+                this.invincibleTimer = 120; // 復活直後は無敵
+                this.x = W / 2;
+                this.y = -50; // 上から降ってくる
+                this.vy = 0;
+                this.vx = 0;
+                updateStatusDisplay();
+            }
+
+            stun(frames) {
+                if (this.isKnockedOut || this.invincibleTimer > 0) return;
+                this.stunTimer = frames;
+                createParticle(this.x, this.y, '⚡');
             }
 
             heal() {
-                if (this.lives < MAX_LIVES) {
-                    this.lives++;
-                    updateLifeDisplay();
-                    createParticle(this.x, this.y, '💖');
-                } else {
-                    updateScore(500); // 満タンならスコア
-                    createParticle(this.x, this.y, '💰');
+                if (this.isKnockedOut) return;
+                this.health += HEAL_FOOD;
+                if (this.health > MAX_HEALTH) {
+                    this.health = MAX_HEALTH;
+                    updateScore(100); 
                 }
+                updateStatusDisplay();
+                createParticle(this.x, this.y, '💖');
             }
 
             jumpPunch(isStrong) {
-                if (isGameOver) return;
+                if (isGameOver || this.isKnockedOut || this.stunTimer > 0) return;
+
+                // ★ダブルジャンプ廃止：地面にいるときしかジャンプできない
+                if (this.isJumping) return;
 
                 let jumpVx = this.lastMoveDir * 0.8; 
-                jumpVx = Math.max(-8, Math.min(8, jumpVx));
+                jumpVx = Math.max(-6, Math.min(6, jumpVx)); // 横移動制限も少しきつく
 
-                if (!this.isJumping || (isStrong && !this.isStrongJump)) {
-                    this.isJumping = true;
-                    this.isStrongJump = isStrong;
-                    this.vy = isStrong ? -16 : -10; 
-                    this.vx = jumpVx;
-                    createParticle(this.x, this.y - 30, isStrong ? '🔥' : '💨');
-                }
+                this.isJumping = true;
+                this.isStrongJump = isStrong;
+                // ジャンプ力も少し抑えめ
+                this.vy = isStrong ? -14 : -9; 
+                this.vx = jumpVx;
+                createParticle(this.x, this.y - 30, isStrong ? '🔥' : '💨');
 
-                // --- パンチ判定（調整版） ---
-                // プレイヤーの中心から近ければ当たるように修正
-                // Y軸の判定をプレイヤーの現在位置基準にして、ジャンプ中でも当たるように
+                // パンチ判定
                 const range = isStrong ? 80 : 60; 
-                
                 foods.forEach(food => {
-                    // プレイヤーとの距離で判定（円形に近い判定）
                     const dist = getDistance(this.x, this.y - 20, food.x, food.y);
-                    
                     if (dist < range + food.radius) {
-                         // 飛ばす方向計算
                         let pushX = (food.x - this.x) * 0.3;
                         if (Math.abs(pushX) < 2) pushX = rand(-2, 2);
                         
@@ -360,18 +480,17 @@
                         const punchPowerY = -Math.sqrt(2 * FOOD_GRAVITY * jumpH);
                         
                         food.punch(pushX, punchPowerY);
-                        createParticle(food.x, food.y, '💢');
+                        createParticle(food.x, food.y, '👊');
                         if (navigator.vibrate) navigator.vibrate(20);
                     }
                 });
             }
 
             eat() {
-                if (isGameOver) return;
+                if (isGameOver || this.isKnockedOut || this.stunTimer > 0) return;
                 
                 const eatRange = 80; 
 
-                // 食べ物を食べる
                 for (let i = foods.length - 1; i >= 0; i--) {
                     const f = foods[i];
                     const dist = getDistance(this.x, this.y - 20, f.x, f.y);
@@ -384,7 +503,6 @@
                     }
                 }
 
-                // 女ダンサーを仲間にする
                 for (let i = dancers.length - 1; i >= 0; i--) {
                     const d = dancers[i];
                     const dist = getDistance(this.x, this.y - 20, d.x, d.y);
@@ -408,7 +526,7 @@
                 this.y = target.y;
                 this.size = 40;
                 this.emoji = '💃';
-                this.lifeTime = 600; // 10秒くらい
+                this.lifeTime = 600;
                 this.state = 'active';
             }
 
@@ -418,13 +536,11 @@
                     if (this.lifeTime <= 0) {
                         this.state = 'leaving';
                     }
-                    // 追従ロジック（LERP）
-                    this.x += (this.target.x - 30 - this.x) * 0.1; // 左後ろにつく
-                    this.y += (this.target.y - this.y) * 0.1;
+                    this.x += (this.target.x - 30 - this.x) * 0.05; // 追従もゆっくり
+                    this.y += (this.target.y - this.y) * 0.05;
                 } else {
-                    // 去っていく
-                    this.x -= 3;
-                    this.y += Math.sin(Date.now() * 0.02) * 2; // 揺れながら
+                    this.x -= 2; // 去るのもゆっくり
+                    this.y += Math.sin(Date.now() * 0.02) * 2; 
                     if (this.x < -50) return 'remove';
                 }
                 return 'alive';
@@ -444,22 +560,18 @@
             }
         }
 
-        // --- 敵キャラ (犬、爆弾、雷) ---
-
         class Dog {
             constructor() {
-                // 左右どちらから出るかランダム
                 this.direction = Math.random() < 0.5 ? 1 : -1;
                 this.x = this.direction === 1 ? -50 : W + 50;
                 this.y = groundY - 20;
-                this.speed = rand(3, 6) * this.direction;
+                // ★犬の速度も少しゆっくり
+                this.speed = randFloat(2, 4) * this.direction; 
                 this.size = 40;
-                this.radius = 15;
                 this.emoji = '🐕';
             }
             update() {
                 this.x += this.speed;
-                // 揺れながら
                 this.y = groundY - 20 + Math.sin(Date.now() * 0.02) * 5;
 
                 if ((this.direction === 1 && this.x > W + 50) || (this.direction === -1 && this.x < -50)) {
@@ -467,15 +579,15 @@
                 }
 
                 if (circleCollision(this, player)) {
-                    player.damage();
-                    return 'remove'; // 当たったら消える（あるいは走り抜けるでも良いが、連続ヒット防止のため消す）
+                    player.damageHealth(DMG_DOG);
+                    return 'remove'; 
                 }
                 return 'alive';
             }
             draw() {
                 ctx.save();
                 ctx.translate(this.x, this.y);
-                ctx.scale(this.direction === 1 ? -1 : 1, 1); // 進行方向を向く
+                ctx.scale(this.direction === 1 ? -1 : 1, 1); 
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -488,7 +600,8 @@
             constructor() {
                 this.x = rand(30, W - 30);
                 this.y = -50;
-                this.vy = rand(2, 5);
+                // ★爆弾もゆっくり
+                this.vy = randFloat(1.5, 3.5);
                 this.size = 40;
                 this.radius = 18;
                 this.emoji = '💣';
@@ -496,7 +609,7 @@
             }
             update() {
                 this.y += this.vy;
-                this.rotation += 0.1;
+                this.rotation += 0.05;
 
                 if (this.y > groundY) {
                     createParticle(this.x, this.y, '💥');
@@ -504,7 +617,7 @@
                 }
 
                 if (circleCollision(this, player)) {
-                    player.damage();
+                    player.loseLife();
                     return 'remove';
                 }
                 return 'alive';
@@ -527,18 +640,18 @@
                 this.y = -50;
                 this.size = 40;
                 this.radius = 15;
-                this.speedY = 4;
+                this.speedY = 2.5; // ★ゆっくり
                 this.emoji = '⚡';
             }
             update() {
                 this.y += this.speedY;
-                // 少しジグザグ
-                this.x += Math.sin(this.y * 0.05) * 3;
+                this.x += Math.sin(this.y * 0.05) * 2;
 
                 if (this.y > groundY) return 'remove';
 
                 if (circleCollision(this, player)) {
-                    player.damage(); // 麻痺削除、ダメージのみ
+                    player.damageHealth(DMG_LIGHTNING);
+                    player.stun(90);
                     return 'remove';
                 }
                 return 'alive';
@@ -554,16 +667,15 @@
             }
         }
 
-        // --- アイテム (食べ物、落ちてくるダンサー) ---
-
         class Food {
             constructor() {
                 this.radius = 15; 
                 this.x = rand(this.radius + 10, W - this.radius - 10);
                 this.y = -30;
                 this.vx = 0;
-                this.vy = randFloat(0.5, 1.5); 
-                this.emoji = ['🍎', '🍇', '🥦', '🍔', '🍰', '🍙', '🍕', '🍬'][rand(0, 7)];
+                this.vy = randFloat(0.5, 1.0); // ★落下速度ゆっくり
+                // ★食べ物リスト変更
+                this.emoji = ['🍎', '🥦', '🍔', '🍰', '🍙'][rand(0, 4)];
                 this.rotation = 0;
                 this.rotSpeed = 0;
                 this.isPunched = false;
@@ -599,7 +711,6 @@
                     return 'alive'; 
                 }
 
-                // 壁反射
                 if (this.x < this.radius) {
                     this.x = this.radius;
                     this.vx *= -0.8;
@@ -614,9 +725,12 @@
                 this.rotation += this.rotSpeed;
                 this.vx *= 0.99; 
 
-                // 地面判定：跳ね返らず消える、体力減らない
                 if (this.y >= groundY - this.radius) {
                     createParticle(this.x, this.y, '💨');
+                    // ★ハートが割れる演出を追加
+                    createParticle(this.x, this.y - 20, '💔'); 
+                    
+                    player.damageHealth(DMG_DROP);
                     return 'remove';
                 }
                 return 'alive';
@@ -633,14 +747,14 @@
             constructor() {
                 this.x = rand(50, W - 50);
                 this.y = -50;
-                this.vy = 2;
+                this.vy = 1.5; // ★ゆっくり
                 this.rotation = 0;
                 this.size = 40;
                 this.emoji = '💃';
             }
             update() {
                 this.y += this.vy;
-                this.rotation += 0.1;
+                this.rotation += 0.05;
                 if (this.y > groundY) return 'remove';
                 return 'alive';
             }
@@ -656,12 +770,10 @@
             }
         }
 
-        // --- 進化する鳥 ---
-
         class EvoBird {
             constructor() {
-                this.stage = 0; // 0:Egg, 1:Chick, 2:Chicken
-                this.emojis = ['🐣', '🐤', '🐓'];
+                this.stage = 0; 
+                this.emojis = ['🐣', '🐥', '🐓']; 
                 this.size = 35;
                 this.radius = 20;
                 this.resetPosition();
@@ -669,22 +781,20 @@
 
             resetPosition() {
                 this.y = rand(H * 0.2, H * 0.6);
-                // 左から出るか右から出るか
                 this.direction = Math.random() < 0.5 ? 1 : -1;
                 this.x = this.direction === 1 ? -30 : W + 30;
                 this.baseY = this.y;
                 this.swingPhase = rand(0, 100);
-                this.speed = randFloat(1, 3);
-                this.state = 'moving'; // moving, flying_away
+                // ★鳥の動きもゆっくり
+                this.speed = randFloat(0.5, 1.5);
+                this.state = 'moving'; 
             }
 
             update() {
                 if (this.state === 'flying_away') {
-                    // ニワトリになって飛んでいく
                     this.x += this.speed * this.direction * 1.5;
-                    this.y -= 2;
+                    this.y -= 1.5;
                     if (this.y < -50 || this.x < -50 || this.x > W + 50) {
-                        // リセットして卵に戻る
                         this.stage = 0;
                         this.state = 'moving';
                         this.resetPosition();
@@ -692,27 +802,24 @@
                     return;
                 }
 
-                // 通常移動
                 this.x += this.speed * this.direction;
-                this.swingPhase += 0.1;
-                this.y = this.baseY + Math.sin(this.swingPhase) * 15; // 揺れながら
+                this.swingPhase += 0.05; // 揺れもゆっくり
+                this.y = this.baseY + Math.sin(this.swingPhase) * 15; 
 
-                // 画面端で折り返し
                 if ((this.direction === 1 && this.x > W + 50) || (this.direction === -1 && this.x < -50)) {
-                    this.resetPosition(); // 高さを変えて反対から再出現
+                    this.direction *= -1; 
+                    this.baseY = rand(H * 0.2, H * 0.6); 
                 }
 
-                // 食べ物との当たり判定（進化）
                 foods.forEach(f => {
                     if (f.isPunched && circleCollision(this, f)) {
-                        f.y = -999; // 食べ物消費
+                        f.y = -999; 
                         createParticle(this.x, this.y, '✨');
                         updateScore(this.stage * 200 + 100);
 
                         if (this.stage < 2) {
                             this.stage++;
                             if (this.stage === 2) {
-                                // ニワトリになったら飛んでいく
                                 this.state = 'flying_away';
                                 createParticle(this.x, this.y, '🐓💨');
                                 updateScore(1000);
@@ -725,7 +832,7 @@
             draw() {
                 ctx.save();
                 ctx.translate(this.x, this.y);
-                ctx.scale(this.direction === 1 ? -1 : 1, 1); // 進行方向を向く
+                ctx.scale(this.direction === 1 ? -1 : 1, 1); 
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -740,7 +847,7 @@
                 this.y = y;
                 this.emoji = emoji;
                 this.life = 30;
-                this.vy = -1.5;
+                this.vy = -1.0; // パーティクルも少しゆっくり
             }
             update() {
                 this.y += this.vy;
@@ -778,17 +885,16 @@
             setTimeout(() => { messageArea.style.opacity = 0; }, 6000);
 
             player = new Player();
-            updateLifeDisplay();
+            updateStatusDisplay();
 
-            // 鳥の初期配置
             birds.push(new EvoBird());
+            setTimeout(() => { birds.push(new EvoBird()); }, 2000);
 
             if (window.gameLoopId) cancelAnimationFrame(window.gameLoopId);
             if (window.spawnTimer) clearInterval(window.spawnTimer);
 
-            // 敵・アイテム出現ループ
             window.spawnTimer = setInterval(() => {
-                if (!isGameOver) {
+                if (!isGameOver && !player.isKnockedOut) {
                     spawnManager();
                 }
             }, 1000);
@@ -804,32 +910,33 @@
 
             // 敵キャラ出現抽選
             const r = Math.random();
-            // 犬
             if (r < 0.02) { 
                 enemies.push(new Dog());
             }
-            // 爆弾
             else if (r < 0.05) {
                 enemies.push(new Bomb());
             }
-            // 雷（レア、最大1個）
             else if (r < 0.06) {
                 const hasLightning = enemies.some(e => e instanceof Lightning);
                 if (!hasLightning) {
                     enemies.push(new Lightning());
                 }
             }
-            // 女ダンサー（レア）
             else if (r < 0.07) {
                 dancers.push(new FallingDancer());
             }
         }
 
-        function updateLifeDisplay() {
+        function updateStatusDisplay() {
             let hearts = '';
             for(let i=0; i<player.lives; i++) hearts += '❤️';
-            for(let i=player.lives; i<MAX_LIVES; i++) hearts += '🖤';
             lifeContainer.textContent = hearts;
+
+            const percent = Math.max(0, player.health / MAX_HEALTH);
+            healthBar.style.width = `${percent * 100}%`;
+            if (percent < 0.3) healthBar.style.backgroundColor = '#d9534f';
+            else if (percent < 0.6) healthBar.style.backgroundColor = '#f0ad4e';
+            else healthBar.style.backgroundColor = '#4CAF50';
         }
 
         function updateScore(pts) {
@@ -880,8 +987,7 @@
             // 鳥
             birds.forEach(b => { b.update(); b.draw(); });
 
-            // 食べ物（当たり判定はPlayerクラス内でも処理）
-            // 食べ物同士の衝突は省略（シンプル化のため）
+            // 食べ物
             for (let i = foods.length - 1; i >= 0; i--) {
                 const res = foods[i].update();
                 if (res === 'remove' || foods[i].y > H + 50) {
@@ -898,7 +1004,7 @@
                 if (particles[i].life <= 0) particles.splice(i, 1);
             }
 
-            // 長押し処理（食事・ダンサーゲット）
+            // 長押し処理
             if (isTouching && !isSwiping) {
                  if (Date.now() - touchStartTime > 300) {
                     player.eat();
@@ -971,7 +1077,6 @@
             const diffX = endX - touchStartX;
             const dist = Math.sqrt(diffX*diffX + diffY*diffY);
 
-            // タップ判定
             if (dist < 20) {
                 const now = new Date().getTime();
                 if (now - lastTapTime < DOUBLE_TAP_DELAY) {
