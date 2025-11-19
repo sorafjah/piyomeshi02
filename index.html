@@ -1,1112 +1,1318 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>ピヨめし - ゆっくり調整版</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    
-    <!-- PWA設定 -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#87CEEB">
-    
-    <!-- アイコン -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐥</text></svg>">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐥</text></svg>">
+  <meta charset="UTF-8">
+  <title>ピヨめし - ゆっくり調整版</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
 
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            background-color: #f0f8ff;
-            font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
-            touch-action: none;
-            user-select: none;
-            -webkit-user-select: none;
-            cursor: pointer;
-        }
+  <!-- PWA設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#87CEEB">
 
-        #gameCanvas {
-            display: block;
-            background-color: #87CEEB;
-            width: 100%;
-            height: 100%;
-        }
+  <!-- アイコン -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐥</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐥</text></svg>">
 
-        #uiContainer {
-            position: absolute;
-            top: env(safe-area-inset-top, 20px);
-            left: 0;
-            width: 100%;
-            padding: 10px 20px;
-            box-sizing: border-box;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            pointer-events: none;
-            z-index: 10;
-        }
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      background-color: #f0f8ff;
+      font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: pointer;
+    }
 
-        #statusArea {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 5px;
-        }
+    #gameCanvas {
+      display: block;
+      background-color: #87CEEB;
+      width: 100%;
+      height: 100%;
+    }
 
-        #lifeContainer {
-            font-size: 28px;
-            letter-spacing: 2px;
-            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));
-            height: 35px;
-        }
+    #uiContainer {
+      position: absolute;
+      top: env(safe-area-inset-top, 20px);
+      left: 0;
+      width: 100%;
+      padding: 10px 20px;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 10;
+    }
 
-        #healthBarContainer {
-            width: 150px;
-            height: 12px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 6px;
-            overflow: hidden;
-            border: 2px solid rgba(255,255,255,0.5);
-        }
+    #statusArea {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
+    }
 
-        #healthBarInner {
-            width: 100%;
-            height: 100%;
-            background-color: #4CAF50;
-            transition: width 0.2s, background-color 0.2s;
-        }
+    #lifeContainer {
+      font-size: 28px;
+      letter-spacing: 2px;
+      filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));
+      height: 35px;
+    }
 
-        #scoreDisplay {
-            font-size: 32px;
-            font-weight: 900;
-            color: #fff;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            font-family: monospace;
-        }
+    #healthBarContainer {
+      width: 150px;
+      height: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.5);
+    }
 
-        #messageArea {
-            position: absolute;
-            top: 150px;
-            width: 100%;
-            text-align: center;
-            font-size: 18px; 
-            line-height: 1.6;
-            font-weight: bold;
-            color: #fff;
-            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.5s;
-            z-index: 5;
-            white-space: nowrap;
-        }
+    #healthBarInner {
+      width: 100%;
+      height: 100%;
+      background-color: #4CAF50;
+      transition: width 0.2s, background-color 0.2s;
+    }
 
-        #gameOverScreen {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            z-index: 20;
-            min-width: 280px;
-        }
+    /* スコア＋倍率表示 */
+    #scoreArea {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
 
-        #gameOverScreen h2 {
-            margin-top: 0;
-            font-size: 2.5em;
-            color: #d9534f;
-        }
+    #scoreDisplay {
+      font-size: 32px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+      font-family: monospace;
+    }
 
-        #finalScore {
-            font-size: 1.8em;
-            margin: 20px 0;
-            color: #333;
-            font-weight: bold;
-        }
+    #multiplierDisplay {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffeb3b;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+      min-height: 18px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
 
-        #restartButton {
-            font-size: 1.4em;
-            padding: 15px 40px;
-            background-color: #5cb85c;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: transform 0.1s;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            font-weight: bold;
-        }
+    #messageArea {
+      position: absolute;
+      top: 150px;
+      width: 100%;
+      text-align: center;
+      font-size: 18px;
+      line-height: 1.6;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s;
+      z-index: 5;
+      white-space: nowrap;
+    }
 
-        #restartButton:active {
-            transform: scale(0.95);
-        }
-    </style>
+    #gameOverScreen {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 30px;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      z-index: 20;
+      min-width: 280px;
+    }
+
+    #gameOverScreen h2 {
+      margin-top: 0;
+      font-size: 2.5em;
+      color: #d9534f;
+    }
+
+    #finalScore {
+      font-size: 1.8em;
+      margin: 20px 0;
+      color: #333;
+      font-weight: bold;
+    }
+
+    #restartButton {
+      font-size: 1.4em;
+      padding: 15px 40px;
+      background-color: #5cb85c;
+      color: white;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.1s;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      font-weight: bold;
+    }
+
+    #restartButton:active {
+      transform: scale(0.95);
+    }
+
+    /* ハイライト表示 */
+    #highlights {
+      margin-top: 20px;
+      text-align: left;
+      font-size: 14px;
+      color: #555;
+    }
+    #highlights div {
+      margin-bottom: 4px;
+    }
+  </style>
 </head>
 <body>
 
-    <canvas id="gameCanvas"></canvas>
+  <canvas id="gameCanvas"></canvas>
 
-    <div id="uiContainer">
-        <div id="statusArea">
-            <div id="lifeContainer">❤️❤️❤️</div>
-            <div id="healthBarContainer">
-                <div id="healthBarInner"></div>
-            </div>
-        </div>
-        <div id="scoreDisplay">0</div>
+  <div id="uiContainer">
+    <div id="statusArea">
+      <div id="lifeContainer">❤️❤️❤️</div>
+      <div id="healthBarContainer">
+        <div id="healthBarInner"></div>
+      </div>
     </div>
-    
-    <div id="messageArea">
-        なぞって横移動<br>
-        タッチでパンチ<br>
-        長押しで食べる・仲間ゲット<br>
-        <span style="color:#ffeb3b">ヒヨコを進化させよう！</span>
+    <div id="scoreArea">
+      <div id="scoreDisplay">0</div>
+      <div id="multiplierDisplay"></div>
     </div>
+  </div>
 
-    <div id="gameOverScreen">
-        <h2>GAME OVER</h2>
-        <div id="finalScore">SCORE: 0</div>
-        <button id="restartButton">もう一回！</button>
+  <div id="messageArea">
+    なぞって横移動<br>
+    タッチでパンチ<br>
+    長押しで食べる・仲間ゲット<br>
+    <span style="color:#ffeb3b">ヒヨコを進化させよう！</span>
+  </div>
+
+  <div id="gameOverScreen">
+    <h2>GAME OVER</h2>
+    <div id="finalScore">SCORE: 0</div>
+    <div id="highlights">
+      <div>すくすく育った数: <span id="statSukusuku">0</span></div>
+      <div>仲間にしたダンサーの数: <span id="statPartner">0</span></div>
     </div>
+    <button id="restartButton">もう一回！</button>
+  </div>
 
-    <script>
-    (function() {
-        // --- 1. グローバル変数 ---
+  <script>
+  (function() {
+    // --- 1. グローバル変数 ---
 
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-        const lifeContainer = document.getElementById('lifeContainer');
-        const healthBar = document.getElementById('healthBarInner');
-        const scoreDisplay = document.getElementById('scoreDisplay');
-        const messageArea = document.getElementById('messageArea');
-        const gameOverScreen = document.getElementById('gameOverScreen');
-        const finalScoreDisplay = document.getElementById('finalScore');
-        const restartButton = document.getElementById('restartButton');
+    const lifeContainer = document.getElementById('lifeContainer');
+    const healthBar = document.getElementById('healthBarInner');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const multiplierDisplay = document.getElementById('multiplierDisplay');
+    const messageArea = document.getElementById('messageArea');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const finalScoreDisplay = document.getElementById('finalScore');
+    const restartButton = document.getElementById('restartButton');
 
-        let W, H;
-        let groundY;
-        let score = 0;
-        let isGameOver = false;
+    const statSukusuku = document.getElementById('statSukusuku');
+    const statPartner = document.getElementById('statPartner');
 
-        let player;
-        let partner = null; // 女ダンサー
-        let foods = [];
-        let enemies = []; // 犬、爆弾、雷
-        let birds = []; // 進化する鳥
-        let dancers = []; // 降ってくるダンサーアイテム
-        let particles = [];
+    const initialMessageHtml = messageArea.innerHTML;
 
-        // 操作関連
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let lastTouchX = 0;
-        let isTouching = false;
-        let touchStartTime = 0;
-        let lastTapTime = 0;
-        const DOUBLE_TAP_DELAY = 300;
+    let W, H;
+    let groundY;
+    let score = 0;
+    let isGameOver = false;
 
-        // ゲーム設定
-        const MAX_LIVES = 3;
-        const MAX_HEALTH = 100;
-        
-        // ★スピード調整：全体的にゆっくりに
-        const GRAVITY = 0.4; // 0.6 -> 0.4
-        const FOOD_GRAVITY = 0.02; // 0.04 -> 0.02
-        const FOOD_SPAWN_RATE = 1500; // 間隔も少し広げる
-        const MAX_FOODS_ON_SCREEN = 4; 
+    let player;
+    let partner = null; // 女ダンサー
+    let foods = [];
+    let enemies = []; // 犬、爆弾、雷
+    let birds = []; // 進化する鳥
+    let dancers = []; // 降ってくるダンサーアイテム
+    let particles = [];
 
-        // ダメージ設定
-        const DMG_DROP = 20;
-        const DMG_DOG = 30;
-        const DMG_LIGHTNING = 25;
-        const HEAL_FOOD = 30;
+    // 操作関連
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTouchX = 0;
+    let isTouching = false;
+    let touchStartTime = 0;
+    let lastTapTime = 0;
+    const DOUBLE_TAP_DELAY = 300;
 
-        // --- 2. ユーティリティ関数 ---
+    // ゲーム設定
+    const MAX_LIVES = 3;
+    const MAX_HEALTH = 100;
 
-        function rand(min, max) {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-        
-        function randFloat(min, max) {
-             return Math.random() * (max - min) + min;
-        }
+    // ★スピード調整：全体的にさらにゆっくりに
+    const GRAVITY = 0.4;
+    const FOOD_GRAVITY = 0.01; // さらにゆっくり
+    const FOOD_SPAWN_RATE = 1500;
+    const MAX_FOODS_ON_SCREEN = 2; // 基本は2つまで
 
-        function getDistance(x1, y1, x2, y2) {
-            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-        }
+    // ダメージ設定
+    const DMG_DROP = 20;
+    const DMG_DOG = 30;
+    const DMG_LIGHTNING = 25;
+    const HEAL_FOOD = 30;
 
-        function circleCollision(c1, c2) {
-            const dist = getDistance(c1.x, c1.y, c2.x, c2.y);
-            return dist < c1.radius + c2.radius;
-        }
+    // フィーバー・統計・波
+    let feverTimer = 0;            // >0 の間フィーバー
+    let consecutiveFullEvo = 0;    // 連続で🐓にした回数
+    let sukusukuCount = 0;         // すくすく育った数（🐓になった回数）
+    let partnerGetCount = 0;       // 仲間にしたダンサー数
 
-        // --- 3. クラス定義 ---
+    let waveTimer = 0;
+    let waveType = 0;              // 0:フードラッシュ, 1:犬ラッシュ, 2:雷・爆弾
+    const WAVE_DURATION = 60 * 30; // 約30秒ごとに切り替え（60fps想定）
 
-        class Player {
-            constructor() {
-                this.size = 40; 
-                this.radius = this.size / 2;
-                this.x = W / 2;
-                this.y = groundY - this.radius;
-                this.vx = 0;
-                this.vy = 0;
-                this.lives = MAX_LIVES;
-                this.health = MAX_HEALTH;
-                this.emoji = '🕺';
-                this.isJumping = false;
-                this.isStrongJump = false;
-                
-                this.lastMoveDir = 0;
-                this.invincibleTimer = 0; // 無敵時間
-                this.stunTimer = 0; // 麻痺時間
-                
-                // ノックアウト（やられ）状態
-                this.isKnockedOut = false;
-            }
+    // --- 2. ユーティリティ関数 ---
 
-            draw() {
-                if (this.isKnockedOut) {
-                    ctx.save();
-                    ctx.translate(this.x, this.y);
-                    ctx.rotate(Date.now() * 0.02); // やられてる時は回転
-                    ctx.font = `${this.size}px Arial`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('😵', 0, 0); // やられ顔
-                    ctx.restore();
-                    return;
-                }
+    function rand(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
 
-                ctx.save();
-                ctx.translate(this.x, this.y);
+    function randFloat(min, max) {
+      return Math.random() * (max - min) + min;
+    }
 
-                // 麻痺中の震え
-                if (this.stunTimer > 0) {
-                    ctx.translate(rand(-3, 3), rand(-3, 3));
-                    ctx.fillStyle = "yellow";
-                    ctx.globalAlpha = 0.5;
-                    ctx.beginPath();
-                    ctx.arc(0, 0, this.radius + 5, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.globalAlpha = 1.0;
-                }
+    function getDistance(x1, y1, x2, y2) {
+      return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    }
 
-                // 無敵中の点滅
-                if (this.invincibleTimer > 0) {
-                    if (Math.floor(Date.now() / 100) % 2 === 0) {
-                         ctx.globalAlpha = 0.5;
-                    }
-                }
+    function circleCollision(c1, c2) {
+      const dist = getDistance(c1.x, c1.y, c2.x, c2.y);
+      return dist < c1.radius + c2.radius;
+    }
 
-                // 移動中の揺れ
-                if (Math.abs(this.lastMoveDir) > 0.1 && !this.isJumping && this.stunTimer <= 0) {
-                    ctx.rotate(Math.sin(Date.now() * 0.015) * 0.15);
-                }
+    // 中央メッセージ表示（すくすくボーナス・波の案内等）
+    function showMessage(text, duration = 1500) {
+      messageArea.innerHTML = text;
+      messageArea.style.opacity = 1;
+      if (showMessage._timeoutId) clearTimeout(showMessage._timeoutId);
+      showMessage._timeoutId = setTimeout(() => {
+        messageArea.style.opacity = 0;
+      }, duration);
+    }
 
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                
-                if (this.isJumping && this.isStrongJump) {
-                     ctx.shadowBlur = 10;
-                     ctx.shadowColor = "orange";
-                }
-                
-                ctx.fillText(this.emoji, 0, 0);
-                ctx.restore();
-                ctx.shadowBlur = 0; 
-                
-                // lastMoveDirの減衰
-                this.lastMoveDir *= 0.8;
-            }
+    // 現在のスコア倍率を計算＆UI反映
+    function getCurrentMultiplier() {
+      let mult = 1;
+      // ★パートナーによる倍加はなし
+      // フィーバー中だけ3倍
+      if (feverTimer > 0) mult = 3;
 
-            update() {
-                // ノックアウト（死亡演出）中
-                if (this.isKnockedOut) {
-                    this.vy += GRAVITY;
-                    this.y += this.vy;
-                    
-                    // 画面外に落ちたらリセット
-                    if (this.y > H + 100) {
-                        this.respawn();
-                    }
-                    return;
-                }
+      if (mult > 1) {
+        multiplierDisplay.textContent = `x${mult}`;
+        multiplierDisplay.style.opacity = 1;
+      } else {
+        multiplierDisplay.textContent = '';
+        multiplierDisplay.style.opacity = 0;
+      }
+      return mult;
+    }
 
-                if (this.invincibleTimer > 0) this.invincibleTimer--;
-                if (this.stunTimer > 0) {
-                    this.stunTimer--;
-                }
+    // --- 3. クラス定義 ---
 
-                // 重力
-                this.vy += GRAVITY;
-                this.y += this.vy;
-                
-                // 空中制御
-                if (this.isJumping) {
-                    this.x += this.vx;
-                    this.vx *= 0.95;
-                } else {
-                    this.vx = 0;
-                }
+    class Player {
+      constructor() {
+        this.size = 40;
+        this.radius = this.size / 2;
+        this.x = W / 2;
+        this.y = groundY - this.radius;
+        this.vx = 0;
+        this.vy = 0;
+        this.lives = MAX_LIVES;
+        this.health = MAX_HEALTH;
+        this.emoji = '🕺';
+        this.isJumping = false;
+        this.isStrongJump = false;
 
-                // 地面判定
-                if (this.y > groundY - this.radius) {
-                    this.y = groundY - this.radius;
-                    if (this.vy > 4) {
-                        this.vy = -this.vy * 0.2; 
-                    } else {
-                        this.vy = 0;
-                        this.isJumping = false;
-                        this.isStrongJump = false;
-                    }
-                }
+        this.lastMoveDir = 0;
+        this.invincibleTimer = 0; // 無敵時間
+        this.stunTimer = 0;       // 麻痺時間
 
-                // 壁反射
-                if (this.x < this.radius) {
-                    this.x = this.radius;
-                    this.vx *= -0.5;
-                }
-                if (this.x > W - this.radius) {
-                    this.x = W - this.radius;
-                    this.vx *= -0.5;
-                }
-            }
+        // ノックアウト（やられ）状態
+        this.isKnockedOut = false;
+      }
 
-            move(dx) {
-                if (this.isKnockedOut || this.stunTimer > 0) return;
-                // ★移動速度も少しゆっくりに (0.7倍)
-                this.x += dx * 0.7;
-                this.lastMoveDir = dx * 0.7;
-            }
-
-            damageHealth(amount) {
-                if (this.isKnockedOut || this.invincibleTimer > 0) return;
-                
-                this.health -= amount;
-                updateStatusDisplay();
-                createParticle(this.x, this.y, '💢');
-                if (navigator.vibrate) navigator.vibrate(200);
-
-                if (this.health <= 0) {
-                    this.loseLife();
-                }
-            }
-
-            loseLife() {
-                if (this.isKnockedOut) return;
-                // 無敵貫通でライフを減らす場合（爆弾など）もここを通る
-
-                this.lives--;
-                updateStatusDisplay();
-
-                if (this.lives <= 0) {
-                    gameOver();
-                } else {
-                    // ★やられ演出：ぴょーんと飛んで下に落ちる
-                    this.isKnockedOut = true;
-                    this.vy = -12; // 上へ跳ねる
-                    createParticle(this.x, this.y, '😱');
-                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                }
-            }
-
-            respawn() {
-                // 仕切り直し
-                this.isKnockedOut = false;
-                this.health = MAX_HEALTH;
-                this.stunTimer = 0;
-                this.invincibleTimer = 120; // 復活直後は無敵
-                this.x = W / 2;
-                this.y = -50; // 上から降ってくる
-                this.vy = 0;
-                this.vx = 0;
-                updateStatusDisplay();
-            }
-
-            stun(frames) {
-                if (this.isKnockedOut || this.invincibleTimer > 0) return;
-                this.stunTimer = frames;
-                createParticle(this.x, this.y, '⚡');
-            }
-
-            heal() {
-                if (this.isKnockedOut) return;
-                this.health += HEAL_FOOD;
-                if (this.health > MAX_HEALTH) {
-                    this.health = MAX_HEALTH;
-                    updateScore(100); 
-                }
-                updateStatusDisplay();
-                createParticle(this.x, this.y, '💖');
-            }
-
-            jumpPunch(isStrong) {
-                if (isGameOver || this.isKnockedOut || this.stunTimer > 0) return;
-
-                // ★ダブルジャンプ廃止：地面にいるときしかジャンプできない
-                if (this.isJumping) return;
-
-                let jumpVx = this.lastMoveDir * 0.8; 
-                jumpVx = Math.max(-6, Math.min(6, jumpVx)); // 横移動制限も少しきつく
-
-                this.isJumping = true;
-                this.isStrongJump = isStrong;
-                // ジャンプ力も少し抑えめ
-                this.vy = isStrong ? -14 : -9; 
-                this.vx = jumpVx;
-                createParticle(this.x, this.y - 30, isStrong ? '🔥' : '💨');
-
-                // パンチ判定
-                const range = isStrong ? 80 : 60; 
-                foods.forEach(food => {
-                    const dist = getDistance(this.x, this.y - 20, food.x, food.y);
-                    if (dist < range + food.radius) {
-                        let pushX = (food.x - this.x) * 0.3;
-                        if (Math.abs(pushX) < 2) pushX = rand(-2, 2);
-                        
-                        const targetHeight = this.isStrongJump ? H * 0.6 : H * 0.4;
-                        const jumpH = Math.max(80, targetHeight); 
-                        const punchPowerY = -Math.sqrt(2 * FOOD_GRAVITY * jumpH);
-                        
-                        food.punch(pushX, punchPowerY);
-                        createParticle(food.x, food.y, '👊');
-                        if (navigator.vibrate) navigator.vibrate(20);
-                    }
-                });
-            }
-
-            eat() {
-                if (isGameOver || this.isKnockedOut || this.stunTimer > 0) return;
-                
-                const eatRange = 80; 
-
-                for (let i = foods.length - 1; i >= 0; i--) {
-                    const f = foods[i];
-                    const dist = getDistance(this.x, this.y - 20, f.x, f.y);
-                    
-                    if (dist < eatRange) {
-                        this.heal();
-                        createParticle(this.x, this.y - 40, '😋');
-                        foods.splice(i, 1);
-                        return; 
-                    }
-                }
-
-                for (let i = dancers.length - 1; i >= 0; i--) {
-                    const d = dancers[i];
-                    const dist = getDistance(this.x, this.y - 20, d.x, d.y);
-
-                    if (dist < eatRange) {
-                        partner = new Partner(this);
-                        dancers.splice(i, 1);
-                        createParticle(this.x, this.y - 40, '🤝');
-                        createParticle(this.x, this.y - 60, '💃');
-                        updateScore(1000);
-                        return;
-                    }
-                }
-            }
+      draw() {
+        if (this.isKnockedOut) {
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.rotate(Date.now() * 0.02); // やられてる時は回転
+          ctx.font = `${this.size}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('😵', 0, 0); // やられ顔
+          ctx.restore();
+          return;
         }
 
-        class Partner {
-            constructor(target) {
-                this.target = target;
-                this.x = target.x;
-                this.y = target.y;
-                this.size = 40;
-                this.emoji = '💃';
-                this.lifeTime = 600;
-                this.state = 'active';
-            }
+        ctx.save();
+        ctx.translate(this.x, this.y);
 
-            update() {
-                if (this.state === 'active') {
-                    this.lifeTime--;
-                    if (this.lifeTime <= 0) {
-                        this.state = 'leaving';
-                    }
-                    this.x += (this.target.x - 30 - this.x) * 0.05; // 追従もゆっくり
-                    this.y += (this.target.y - this.y) * 0.05;
-                } else {
-                    this.x -= 2; // 去るのもゆっくり
-                    this.y += Math.sin(Date.now() * 0.02) * 2; 
-                    if (this.x < -50) return 'remove';
-                }
-                return 'alive';
-            }
-
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                if (this.state === 'leaving' || Math.abs(this.target.vx) > 0.5) {
-                    ctx.rotate(Math.sin(Date.now() * 0.02) * 0.2);
-                }
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emoji, 0, 0);
-                ctx.restore();
-            }
+        // 麻痺中の震え
+        if (this.stunTimer > 0) {
+          ctx.translate(rand(-3, 3), rand(-3, 3));
+          ctx.fillStyle = "yellow";
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.radius + 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
         }
 
-        class Dog {
-            constructor() {
-                this.direction = Math.random() < 0.5 ? 1 : -1;
-                this.x = this.direction === 1 ? -50 : W + 50;
-                this.y = groundY - 20;
-                // ★犬の速度も少しゆっくり
-                this.speed = randFloat(2, 4) * this.direction; 
-                this.size = 40;
-                this.emoji = '🐕';
-            }
-            update() {
-                this.x += this.speed;
-                this.y = groundY - 20 + Math.sin(Date.now() * 0.02) * 5;
-
-                if ((this.direction === 1 && this.x > W + 50) || (this.direction === -1 && this.x < -50)) {
-                    return 'remove';
-                }
-
-                if (circleCollision(this, player)) {
-                    player.damageHealth(DMG_DOG);
-                    return 'remove'; 
-                }
-                return 'alive';
-            }
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.scale(this.direction === 1 ? -1 : 1, 1); 
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emoji, 0, 0);
-                ctx.restore();
-            }
+        // 無敵中の点滅
+        if (this.invincibleTimer > 0) {
+          if (Math.floor(Date.now() / 100) % 2 === 0) {
+            ctx.globalAlpha = 0.5;
+          }
         }
 
-        class Bomb {
-            constructor() {
-                this.x = rand(30, W - 30);
-                this.y = -50;
-                // ★爆弾もゆっくり
-                this.vy = randFloat(1.5, 3.5);
-                this.size = 40;
-                this.radius = 18;
-                this.emoji = '💣';
-                this.rotation = 0;
-            }
-            update() {
-                this.y += this.vy;
-                this.rotation += 0.05;
-
-                if (this.y > groundY) {
-                    createParticle(this.x, this.y, '💥');
-                    return 'remove';
-                }
-
-                if (circleCollision(this, player)) {
-                    player.loseLife();
-                    return 'remove';
-                }
-                return 'alive';
-            }
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.rotation);
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emoji, 0, 0);
-                ctx.restore();
-            }
+        // 移動中の揺れ
+        if (Math.abs(this.lastMoveDir) > 0.1 && !this.isJumping && this.stunTimer <= 0) {
+          ctx.rotate(Math.sin(Date.now() * 0.015) * 0.15);
         }
 
-        class Lightning {
-            constructor() {
-                this.x = rand(20, W - 20);
-                this.y = -50;
-                this.size = 40;
-                this.radius = 15;
-                this.speedY = 2.5; // ★ゆっくり
-                this.emoji = '⚡';
-            }
-            update() {
-                this.y += this.speedY;
-                this.x += Math.sin(this.y * 0.05) * 2;
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-                if (this.y > groundY) return 'remove';
-
-                if (circleCollision(this, player)) {
-                    player.damageHealth(DMG_LIGHTNING);
-                    player.stun(90);
-                    return 'remove';
-                }
-                return 'alive';
-            }
-            draw() {
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = 'yellow';
-                ctx.fillText(this.emoji, this.x, this.y);
-                ctx.shadowBlur = 0;
-            }
+        if (this.isJumping && this.isStrongJump) {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = "orange";
         }
 
-        class Food {
-            constructor() {
-                this.radius = 15; 
-                this.x = rand(this.radius + 10, W - this.radius - 10);
-                this.y = -30;
-                this.vx = 0;
-                this.vy = randFloat(0.5, 1.0); // ★落下速度ゆっくり
-                // ★食べ物リスト変更
-                this.emoji = ['🍎', '🥦', '🍔', '🍰', '🍙'][rand(0, 4)];
-                this.rotation = 0;
-                this.rotSpeed = 0;
-                this.isPunched = false;
-                
-                this.hitStop = 0; 
-                this.pendingVx = 0;
-                this.pendingVy = 0;
-            }
+        ctx.fillText(this.emoji, 0, 0);
+        ctx.restore();
+        ctx.shadowBlur = 0;
 
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                if (this.hitStop > 0) {
-                    ctx.translate(rand(-2, 2), rand(-2, 2));
-                }
-                ctx.rotate(this.rotation);
-                ctx.font = `${this.radius * 2}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emoji, 0, 0);
-                ctx.restore();
-            }
+        // lastMoveDirの減衰
+        this.lastMoveDir *= 0.8;
+      }
 
-            update() {
-                if (this.hitStop > 0) {
-                    this.hitStop--;
-                    if (this.hitStop === 0) {
-                        this.vx = this.pendingVx;
-                        this.vy = this.pendingVy;
-                        this.rotSpeed = rand(-0.2, 0.2);
-                        this.isPunched = true;
-                    }
-                    return 'alive'; 
-                }
+      update() {
+        // ノックアウト（死亡演出）中
+        if (this.isKnockedOut) {
+          this.vy += GRAVITY;
+          this.y += this.vy;
 
-                if (this.x < this.radius) {
-                    this.x = this.radius;
-                    this.vx *= -0.8;
-                } else if (this.x > W - this.radius) {
-                    this.x = W - this.radius;
-                    this.vx *= -0.8;
-                }
-
-                this.vy += FOOD_GRAVITY; 
-                this.x += this.vx;
-                this.y += this.vy;
-                this.rotation += this.rotSpeed;
-                this.vx *= 0.99; 
-
-                if (this.y >= groundY - this.radius) {
-                    createParticle(this.x, this.y, '💨');
-                    // ★ハートが割れる演出を追加
-                    createParticle(this.x, this.y - 20, '💔'); 
-                    
-                    player.damageHealth(DMG_DROP);
-                    return 'remove';
-                }
-                return 'alive';
-            }
-
-            punch(vx, vy) {
-                this.hitStop = 6; 
-                this.pendingVx = vx;
-                this.pendingVy = vy;
-            }
+          // 画面外に落ちたらリセット
+          if (this.y > H + 100) {
+            this.respawn();
+          }
+          return;
         }
 
-        class FallingDancer {
-            constructor() {
-                this.x = rand(50, W - 50);
-                this.y = -50;
-                this.vy = 1.5; // ★ゆっくり
-                this.rotation = 0;
-                this.size = 40;
-                this.emoji = '💃';
-            }
-            update() {
-                this.y += this.vy;
-                this.rotation += 0.05;
-                if (this.y > groundY) return 'remove';
-                return 'alive';
-            }
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.rotation);
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emoji, 0, 0);
-                ctx.restore();
-            }
+        if (this.invincibleTimer > 0) this.invincibleTimer--;
+        if (this.stunTimer > 0) {
+          this.stunTimer--;
         }
 
-        class EvoBird {
-            constructor() {
-                this.stage = 0; 
-                this.emojis = ['🐣', '🐥', '🐓']; 
-                this.size = 35;
-                this.radius = 20;
-                this.resetPosition();
-            }
+        // 重力
+        this.vy += GRAVITY;
+        this.y += this.vy;
 
-            resetPosition() {
-                this.y = rand(H * 0.2, H * 0.6);
-                this.direction = Math.random() < 0.5 ? 1 : -1;
-                this.x = this.direction === 1 ? -30 : W + 30;
-                this.baseY = this.y;
-                this.swingPhase = rand(0, 100);
-                // ★鳥の動きもゆっくり
-                this.speed = randFloat(0.5, 1.5);
-                this.state = 'moving'; 
-            }
-
-            update() {
-                if (this.state === 'flying_away') {
-                    this.x += this.speed * this.direction * 1.5;
-                    this.y -= 1.5;
-                    if (this.y < -50 || this.x < -50 || this.x > W + 50) {
-                        this.stage = 0;
-                        this.state = 'moving';
-                        this.resetPosition();
-                    }
-                    return;
-                }
-
-                this.x += this.speed * this.direction;
-                this.swingPhase += 0.05; // 揺れもゆっくり
-                this.y = this.baseY + Math.sin(this.swingPhase) * 15; 
-
-                if ((this.direction === 1 && this.x > W + 50) || (this.direction === -1 && this.x < -50)) {
-                    this.direction *= -1; 
-                    this.baseY = rand(H * 0.2, H * 0.6); 
-                }
-
-                foods.forEach(f => {
-                    if (f.isPunched && circleCollision(this, f)) {
-                        f.y = -999; 
-                        createParticle(this.x, this.y, '✨');
-                        updateScore(this.stage * 200 + 100);
-
-                        if (this.stage < 2) {
-                            this.stage++;
-                            if (this.stage === 2) {
-                                this.state = 'flying_away';
-                                createParticle(this.x, this.y, '🐓💨');
-                                updateScore(1000);
-                            }
-                        }
-                    }
-                });
-            }
-
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.scale(this.direction === 1 ? -1 : 1, 1); 
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emojis[this.stage], 0, 0);
-                ctx.restore();
-            }
+        // 空中制御
+        if (this.isJumping) {
+          this.x += this.vx;
+          this.vx *= 0.95;
+        } else {
+          this.vx = 0;
         }
 
-        class Particle {
-            constructor(x, y, emoji) {
-                this.x = x;
-                this.y = y;
-                this.emoji = emoji;
-                this.life = 30;
-                this.vy = -1.0; // パーティクルも少しゆっくり
-            }
-            update() {
-                this.y += this.vy;
-                this.life--;
-            }
-            draw() {
-                ctx.globalAlpha = this.life / 30;
-                ctx.font = '25px Arial';
-                ctx.fillText(this.emoji, this.x, this.y);
-                ctx.globalAlpha = 1.0;
-            }
+        // 地面判定
+        if (this.y > groundY - this.radius) {
+          this.y = groundY - this.radius;
+          if (this.vy > 4) {
+            this.vy = -this.vy * 0.2;
+          } else {
+            this.vy = 0;
+            this.isJumping = false;
+            this.isStrongJump = false;
+          }
         }
 
-        // --- 4. メイン処理 ---
-
-        function init() {
-            W = canvas.width = window.innerWidth;
-            H = canvas.height = window.innerHeight;
-            groundY = H - 80;
-
-            score = 0;
-            scoreDisplay.textContent = score;
-            isGameOver = false;
-            
-            foods = [];
-            enemies = [];
-            dancers = [];
-            birds = [];
-            particles = [];
-            partner = null;
-
-            gameOverScreen.style.display = 'none';
-            
-            messageArea.style.opacity = 1;
-            setTimeout(() => { messageArea.style.opacity = 0; }, 6000);
-
-            player = new Player();
-            updateStatusDisplay();
-
-            birds.push(new EvoBird());
-            setTimeout(() => { birds.push(new EvoBird()); }, 2000);
-
-            if (window.gameLoopId) cancelAnimationFrame(window.gameLoopId);
-            if (window.spawnTimer) clearInterval(window.spawnTimer);
-
-            window.spawnTimer = setInterval(() => {
-                if (!isGameOver && !player.isKnockedOut) {
-                    spawnManager();
-                }
-            }, 1000);
-
-            loop();
+        // 壁反射
+        if (this.x < this.radius) {
+          this.x = this.radius;
+          this.vx *= -0.5;
         }
-
-        function spawnManager() {
-            // 食べ物
-            if (foods.length < MAX_FOODS_ON_SCREEN && Math.random() < 0.8) {
-                foods.push(new Food());
-            }
-
-            // 敵キャラ出現抽選
-            const r = Math.random();
-            if (r < 0.02) { 
-                enemies.push(new Dog());
-            }
-            else if (r < 0.05) {
-                enemies.push(new Bomb());
-            }
-            else if (r < 0.06) {
-                const hasLightning = enemies.some(e => e instanceof Lightning);
-                if (!hasLightning) {
-                    enemies.push(new Lightning());
-                }
-            }
-            else if (r < 0.07) {
-                dancers.push(new FallingDancer());
-            }
+        if (this.x > W - this.radius) {
+          this.x = W - this.radius;
+          this.vx *= -0.5;
         }
+      }
 
-        function updateStatusDisplay() {
-            let hearts = '';
-            for(let i=0; i<player.lives; i++) hearts += '❤️';
-            lifeContainer.textContent = hearts;
+      move(dx) {
+        if (this.isKnockedOut || this.stunTimer > 0) return;
+        // ★移動速度も少しゆっくりに (0.7倍)
+        this.x += dx * 0.7;
+        this.lastMoveDir = dx * 0.7;
+      }
 
-            const percent = Math.max(0, player.health / MAX_HEALTH);
-            healthBar.style.width = `${percent * 100}%`;
-            if (percent < 0.3) healthBar.style.backgroundColor = '#d9534f';
-            else if (percent < 0.6) healthBar.style.backgroundColor = '#f0ad4e';
-            else healthBar.style.backgroundColor = '#4CAF50';
+      damageHealth(amount) {
+        if (this.isKnockedOut || this.invincibleTimer > 0) return;
+
+        this.health -= amount;
+        updateStatusDisplay();
+        createParticle(this.x, this.y, '💢');
+        if (navigator.vibrate) navigator.vibrate(200);
+
+        if (this.health <= 0) {
+          this.loseLife();
         }
+      }
 
-        function updateScore(pts) {
-            score += pts;
-            scoreDisplay.textContent = score;
+      loseLife() {
+        if (this.isKnockedOut) return;
+
+        this.lives--;
+        updateStatusDisplay();
+
+        if (this.lives <= 0) {
+          gameOver();
+        } else {
+          // ★やられ演出：ぴょーんと飛んで下に落ちる
+          this.isKnockedOut = true;
+          this.vy = -12; // 上へ跳ねる
+          createParticle(this.x, this.y, '😱');
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
         }
+      }
 
-        function createParticle(x, y, e) {
-            particles.push(new Particle(x, y, e));
+      respawn() {
+        // 仕切り直し
+        this.isKnockedOut = false;
+        this.health = MAX_HEALTH;
+        this.stunTimer = 0;
+        this.invincibleTimer = 120; // 復活直後は無敵
+        this.x = W / 2;
+        this.y = -50; // 上から降ってくる
+        this.vy = 0;
+        this.vx = 0;
+        updateStatusDisplay();
+      }
+
+      stun(frames) {
+        if (this.isKnockedOut || this.invincibleTimer > 0) return;
+        this.stunTimer = frames;
+        createParticle(this.x, this.y, '⚡');
+      }
+
+      heal() {
+        if (this.isKnockedOut) return;
+        this.health += HEAL_FOOD;
+        if (this.health > MAX_HEALTH) {
+          this.health = MAX_HEALTH;
+          updateScore(100);
         }
+        updateStatusDisplay();
+        createParticle(this.x, this.y, '💖');
+      }
 
-        function loop() {
-            if (isGameOver) return;
+      jumpPunch(isStrong) {
+        if (isGameOver || this.isKnockedOut || this.stunTimer > 0) return;
 
-            ctx.clearRect(0, 0, W, H);
+        // ★ダブルジャンプ廃止：地面にいるときしかジャンプできない
+        if (this.isJumping) return;
 
-            // 背景・地面
-            ctx.fillStyle = '#8B4513';
-            ctx.fillRect(0, groundY, W, H - groundY);
-            ctx.fillStyle = '#228B22';
-            ctx.fillRect(0, groundY, W, 15);
+        let jumpVx = this.lastMoveDir * 0.8;
+        jumpVx = Math.max(-6, Math.min(6, jumpVx)); // 横移動制限も少しきつく
 
-            // 敵
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const res = enemies[i].update();
-                if (res === 'remove') enemies.splice(i, 1);
-                else enemies[i].draw();
-            }
+        this.isJumping = true;
+        this.isStrongJump = isStrong;
+        // ジャンプ力も少し抑えめ
+        this.vy = isStrong ? -14 : -9;
+        this.vx = jumpVx;
+        createParticle(this.x, this.y - 30, isStrong ? '🔥' : '💨');
 
-            // 落ちてくるダンサー
-            for (let i = dancers.length - 1; i >= 0; i--) {
-                const res = dancers[i].update();
-                if (res === 'remove') dancers.splice(i, 1);
-                else dancers[i].draw();
-            }
+        // パンチ判定
+        const range = isStrong ? 80 : 60;
 
-            // パートナー
-            if (partner) {
-                const res = partner.update();
-                if (res === 'remove') partner = null;
-                else partner.draw();
-            }
+        foods.forEach(food => {
+          const dist = getDistance(this.x, this.y - 20, food.x, food.y);
+          if (dist < range + food.radius) {
+            let pushX = (food.x - this.x) * 0.3;
+            if (Math.abs(pushX) < 2) pushX = rand(-2, 2);
 
-            // プレイヤー
-            player.update();
-            player.draw();
+            const targetHeight = this.isStrongJump ? H * 0.6 : H * 0.4;
+            const jumpH = Math.max(80, targetHeight);
+            const punchPowerY = -Math.sqrt(2 * FOOD_GRAVITY * jumpH);
 
-            // 鳥
-            birds.forEach(b => { b.update(); b.draw(); });
-
-            // 食べ物
-            for (let i = foods.length - 1; i >= 0; i--) {
-                const res = foods[i].update();
-                if (res === 'remove' || foods[i].y > H + 50) {
-                    foods.splice(i, 1);
-                } else {
-                    foods[i].draw();
-                }
-            }
-
-            // パーティクル
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update();
-                particles[i].draw();
-                if (particles[i].life <= 0) particles.splice(i, 1);
-            }
-
-            // 長押し処理
-            if (isTouching && !isSwiping) {
-                 if (Date.now() - touchStartTime > 300) {
-                    player.eat();
-                 }
-            }
-
-            window.gameLoopId = requestAnimationFrame(loop);
-        }
-
-        function gameOver() {
-            isGameOver = true;
-            clearInterval(window.spawnTimer);
-            finalScoreDisplay.textContent = `SCORE: ${score}`;
-            gameOverScreen.style.display = 'block';
-        }
-
-        // --- 5. イベント ---
-
-        restartButton.addEventListener('click', init);
-
-        let isSwiping = false; 
-
-        function getPoint(e) {
-            if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            return { x: e.clientX, y: e.clientY };
-        }
-
-        function handleStart(e) {
-            e.preventDefault();
-            if (isGameOver) return;
-            
-            const p = getPoint(e);
-            touchStartX = p.x;
-            touchStartY = p.y;
-            lastTouchX = p.x;
-            isTouching = true;
-            isSwiping = false; 
-            touchStartTime = Date.now();
-        }
-
-        function handleMove(e) {
-            e.preventDefault();
-            if (e.type === 'mousemove' && !isTouching) return;
-            if (isGameOver || !isTouching) return;
-
-            const p = getPoint(e);
-            const deltaX = p.x - lastTouchX;
-            if (Math.abs(deltaX) > 2) isSwiping = true; 
-
-            player.move(deltaX);
-            lastTouchX = p.x;
-        }
-
-        function handleEnd(e) {
-            e.preventDefault();
-            if (isGameOver) return;
-            
-            isTouching = false;
-
-            let endX, endY;
-            if (e.changedTouches && e.changedTouches.length > 0) {
-                endX = e.changedTouches[0].clientX;
-                endY = e.changedTouches[0].clientY;
-            } else {
-                endX = e.clientX;
-                endY = e.clientY;
-            }
-
-            const diffY = endY - touchStartY;
-            const diffX = endX - touchStartX;
-            const dist = Math.sqrt(diffX*diffX + diffY*diffY);
-
-            if (dist < 20) {
-                const now = new Date().getTime();
-                if (now - lastTapTime < DOUBLE_TAP_DELAY) {
-                    player.jumpPunch(true); 
-                    lastTapTime = 0;
-                } else {
-                    player.jumpPunch(false); 
-                    lastTapTime = now;
-                }
-            }
-        }
-
-        canvas.addEventListener('touchstart', handleStart, {passive: false});
-        canvas.addEventListener('touchmove', handleMove, {passive: false});
-        canvas.addEventListener('touchend', handleEnd, {passive: false});
-
-        canvas.addEventListener('mousedown', handleStart);
-        canvas.addEventListener('mousemove', handleMove);
-        canvas.addEventListener('mouseup', handleEnd);
-        canvas.addEventListener('mouseleave', () => isTouching = false);
-
-        window.addEventListener('resize', () => {
-            W = canvas.width = window.innerWidth;
-            H = canvas.height = window.innerHeight;
-            groundY = H - 80;
-            if (player) player.y = groundY - player.radius;
+            food.punch(pushX, punchPowerY);
+            // ★手エフェクト(👊)はなし
+            if (navigator.vibrate) navigator.vibrate(20);
+          }
         });
+      }
 
-        init();
-    })();
-    </script>
+      eat() {
+        if (isGameOver || this.isKnockedOut || this.stunTimer > 0) return;
+
+        const eatRange = 80;
+
+        for (let i = foods.length - 1; i >= 0; i--) {
+          const f = foods[i];
+          const dist = getDistance(this.x, this.y - 20, f.x, f.y);
+
+          if (dist < eatRange) {
+            this.heal();
+            createParticle(this.x, this.y - 40, '😋');
+            foods.splice(i, 1);
+            return;
+          }
+        }
+
+        for (let i = dancers.length - 1; i >= 0; i--) {
+          const d = dancers[i];
+          const dist = getDistance(this.x, this.y - 20, d.x, d.y);
+
+          if (dist < eatRange) {
+            partner = new Partner(this);
+            partnerGetCount++; // 仲間カウント
+            dancers.splice(i, 1);
+            createParticle(this.x, this.y - 40, '🤝');
+            createParticle(this.x, this.y - 60, '💃');
+            updateScore(1000);
+            return;
+          }
+        }
+      }
+    }
+
+    class Partner {
+      constructor(target) {
+        this.target = target;
+        this.x = target.x;
+        this.y = target.y;
+        this.size = 40;
+        this.radius = this.size / 2;
+        this.emoji = '💃';
+        this.lifeTime = 600;
+        this.state = 'active'; // active / leaving / sacrifice
+        this.alpha = 1;
+      }
+
+      takeHit() {
+        if (this.state === 'sacrifice') return;
+        this.state = 'sacrifice';
+        this.lifeTime = 30;
+        this.alpha = 1;
+        this.target = null; // もう追従しない
+      }
+
+      update() {
+        if (this.state === 'active') {
+          this.lifeTime--;
+          if (this.lifeTime <= 0) {
+            this.state = 'leaving';
+          }
+          if (this.target) {
+            this.x += (this.target.x - 30 - this.x) * 0.05;
+            this.y += (this.target.y - this.y) * 0.05;
+          }
+        } else if (this.state === 'leaving') {
+          this.x -= 2;
+          this.y += Math.sin(Date.now() * 0.02) * 2;
+          if (this.x < -50) return 'remove';
+        } else if (this.state === 'sacrifice') {
+          this.lifeTime--;
+          this.alpha = this.lifeTime / 30;
+          if (this.lifeTime <= 0) return 'remove';
+        }
+        return 'alive';
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        if (this.state === 'sacrifice') {
+          ctx.globalAlpha = this.alpha;
+          ctx.font = `${this.size * 1.2}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('❤️', 0, 0);
+          ctx.globalAlpha = 1;
+          ctx.restore();
+          return;
+        }
+
+        if (this.state === 'leaving' || (this.target && Math.abs(this.target.vx) > 0.5)) {
+          ctx.rotate(Math.sin(Date.now() * 0.02) * 0.2);
+        }
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.emoji, 0, 0);
+        ctx.restore();
+      }
+    }
+
+    class Dog {
+      constructor() {
+        this.direction = Math.random() < 0.5 ? 1 : -1;
+        this.x = this.direction === 1 ? -50 : W + 50;
+        this.y = groundY - 20;
+        // ★犬の速度も少しゆっくり
+        this.speed = randFloat(2, 4) * this.direction;
+        this.size = 40;
+        this.radius = 20; // ★当たり判定
+        this.emoji = '🐕';
+      }
+      update() {
+        this.x += this.speed;
+        this.y = groundY - 20 + Math.sin(Date.now() * 0.02) * 5;
+
+        if ((this.direction === 1 && this.x > W + 50) || (this.direction === -1 && this.x < -50)) {
+          return 'remove';
+        }
+
+        // ★パートナー身代わり優先
+        if (partner && partner.state === 'active' && circleCollision(this, partner)) {
+          partner.takeHit();
+          return 'remove';
+        }
+
+        // プレイヤーに当たるとダメージ
+        if (circleCollision(this, player)) {
+          player.damageHealth(DMG_DOG);
+          return 'remove';
+        }
+        return 'alive';
+      }
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.scale(this.direction === 1 ? -1 : 1, 1);
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.emoji, 0, 0);
+        ctx.restore();
+      }
+    }
+
+    class Bomb {
+      constructor() {
+        this.x = rand(30, W - 30);
+        this.y = -50;
+        // ★爆弾もさらにゆっくり
+        this.vy = randFloat(0.7, 1.5);
+        this.size = 40;
+        this.radius = 18;
+        this.emoji = '💣';
+        this.rotation = 0;
+      }
+      update() {
+        this.y += this.vy;
+        this.rotation += 0.05;
+
+        if (this.y > groundY) {
+          createParticle(this.x, this.y, '💥');
+          return 'remove';
+        }
+
+        // パートナー身代わり
+        if (partner && partner.state === 'active' && circleCollision(this, partner)) {
+          partner.takeHit();
+          return 'remove';
+        }
+
+        if (circleCollision(this, player)) {
+          player.loseLife();
+          return 'remove';
+        }
+        return 'alive';
+      }
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.emoji, 0, 0);
+        ctx.restore();
+      }
+    }
+
+    class Lightning {
+      constructor() {
+        this.x = rand(20, W - 20);
+        this.y = -50;
+        this.size = 40;
+        this.radius = 15;
+        this.speedY = 1.5; // さらにゆっくり
+        this.emoji = '⚡';
+      }
+      update() {
+        this.y += this.speedY;
+        this.x += Math.sin(this.y * 0.05) * 2;
+
+        if (this.y > groundY) return 'remove';
+
+        // パートナー身代わり
+        if (partner && partner.state === 'active' && circleCollision(this, partner)) {
+          partner.takeHit();
+          return 'remove';
+        }
+
+        if (circleCollision(this, player)) {
+          player.damageHealth(DMG_LIGHTNING);
+          player.stun(90);
+          return 'remove';
+        }
+        return 'alive';
+      }
+      draw() {
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'yellow';
+        ctx.fillText(this.emoji, this.x, this.y);
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    class Food {
+      constructor() {
+        this.radius = 15;
+        this.x = rand(this.radius + 10, W - this.radius - 10);
+        this.y = -30;
+        this.vx = 0;
+        this.vy = randFloat(0.2, 0.5); // 落下速度さらにゆっくり
+        this.emoji = ['🍎', '🥦', '🍔', '🍰', '🍙'][rand(0, 4)];
+        this.rotation = 0;
+        this.rotSpeed = 0;
+        this.isPunched = false;
+
+        this.hitStop = 0;
+        this.pendingVx = 0;
+        this.pendingVy = 0;
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (this.hitStop > 0) {
+          ctx.translate(rand(-2, 2), rand(-2, 2));
+        }
+        ctx.rotate(this.rotation);
+        ctx.font = `${this.radius * 2}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // ★フィーバー中は全部カレーに見える
+        const emojiToDraw = (feverTimer > 0) ? '🍛' : this.emoji;
+        ctx.fillText(emojiToDraw, 0, 0);
+        ctx.restore();
+      }
+
+      update() {
+        if (this.hitStop > 0) {
+          this.hitStop--;
+          if (this.hitStop === 0) {
+            this.vx = this.pendingVx;
+            this.vy = this.pendingVy;
+            this.rotSpeed = rand(-0.2, 0.2);
+            this.isPunched = true;
+          }
+          return 'alive';
+        }
+
+        if (this.x < this.radius) {
+          this.x = this.radius;
+          this.vx *= -0.8;
+        } else if (this.x > W - this.radius) {
+          this.x = W - this.radius;
+          this.vx *= -0.8;
+        }
+
+        this.vy += FOOD_GRAVITY;
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.rotSpeed;
+        this.vx *= 0.99;
+
+        if (this.y >= groundY - this.radius) {
+          createParticle(this.x, this.y, '💨');
+          // ★フィーバー中は落ちてもダメージなし
+          if (feverTimer <= 0) {
+            createParticle(this.x, this.y - 20, '💔');
+            player.damageHealth(DMG_DROP);
+          }
+          return 'remove';
+        }
+        return 'alive';
+      }
+
+      punch(vx, vy) {
+        this.hitStop = 6;
+        this.pendingVx = vx;
+        this.pendingVy = vy;
+      }
+    }
+
+    class FallingDancer {
+      constructor() {
+        this.x = rand(50, W - 50);
+        this.y = -50;
+        this.vy = 1.0; // ゆっくり
+        this.rotation = 0;
+        this.size = 40;
+        this.emoji = '💃';
+      }
+      update() {
+        this.y += this.vy;
+        this.rotation += 0.05;
+        if (this.y > groundY) return 'remove';
+        return 'alive';
+      }
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.emoji, 0, 0);
+        ctx.restore();
+      }
+    }
+
+    class EvoBird {
+      constructor() {
+        this.stage = 0;
+        this.emojis = ['🐣', '🐥', '🐓'];
+        this.size = 35;
+        this.radius = 20;
+        this.resetPosition();
+      }
+
+      resetPosition() {
+        this.y = rand(H * 0.2, H * 0.6);
+        this.direction = Math.random() < 0.5 ? 1 : -1;
+        this.x = this.direction === 1 ? -30 : W + 30;
+        this.baseY = this.y;
+        this.swingPhase = rand(0, 100);
+        this.speed = randFloat(0.5, 1.5); // 鳥の動きもゆっくり
+        this.state = 'moving';
+      }
+
+      update() {
+        if (this.state === 'flying_away') {
+          this.x += this.speed * this.direction * 1.5;
+          this.y -= 1.5;
+          if (this.y < -50 || this.x < -50 || this.x > W + 50) {
+            this.stage = 0;
+            this.state = 'moving';
+            this.resetPosition();
+          }
+          return;
+        }
+
+        this.x += this.speed * this.direction;
+        this.swingPhase += 0.05;
+        this.y = this.baseY + Math.sin(this.swingPhase) * 15;
+
+        if ((this.direction === 1 && this.x > W + 50) || (this.direction === -1 && this.x < -50)) {
+          this.direction *= -1;
+          this.baseY = rand(H * 0.2, H * 0.6);
+        }
+
+        // 食べ物キャッチ
+        foods.forEach(f => {
+          if (f.isPunched && circleCollision(this, f)) {
+            f.y = -999;
+            const basePts = this.stage * 200 + 100;
+            createParticle(this.x, this.y, '✨');
+            updateScore(basePts);
+
+            if (this.stage < 2) {
+              this.stage++;
+              if (this.stage === 2) {
+                // 🐓になった瞬間
+                this.state = 'flying_away';
+                createParticle(this.x, this.y, '🐓💨');
+                updateScore(1000); // すくすく本体分
+                sukusukuCount++;
+                showMessage('すくすくボーナス！+1000', 1500);
+
+                consecutiveFullEvo++;
+                if (consecutiveFullEvo >= 3) {
+                  // ★フィーバー突入
+                  feverTimer = 600; // 約10秒
+                  consecutiveFullEvo = 0;
+                  showMessage('フィーバータイム！', 1500);
+                }
+              }
+            }
+          }
+        });
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.scale(this.direction === 1 ? -1 : 1, 1);
+        ctx.font = `${this.size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.emojis[this.stage], 0, 0);
+        ctx.restore();
+      }
+    }
+
+    class Particle {
+      constructor(x, y, emoji) {
+        this.x = x;
+        this.y = y;
+        this.emoji = emoji;
+        this.life = 30;
+        this.vy = -1.0; // パーティクルも少しゆっくり
+      }
+      update() {
+        this.y += this.vy;
+        this.life--;
+      }
+      draw() {
+        ctx.globalAlpha = this.life / 30;
+        ctx.font = '25px Arial';
+        ctx.fillText(this.emoji, this.x, this.y);
+        ctx.globalAlpha = 1.0;
+      }
+    }
+
+    // --- 4. メイン処理 ---
+
+    function init() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      groundY = H - 80;
+
+      score = 0;
+      isGameOver = false;
+
+      feverTimer = 0;
+      consecutiveFullEvo = 0;
+      sukusukuCount = 0;
+      partnerGetCount = 0;
+      waveTimer = 0;
+      waveType = 0;
+
+      foods = [];
+      enemies = [];
+      dancers = [];
+      birds = [];
+      particles = [];
+      partner = null;
+
+      gameOverScreen.style.display = 'none';
+
+      // チュートリアルメッセージを毎回復元
+      messageArea.innerHTML = initialMessageHtml;
+      messageArea.style.opacity = 1;
+      setTimeout(() => { messageArea.style.opacity = 0; }, 6000);
+
+      player = new Player();
+      updateStatusDisplay();
+
+      birds.push(new EvoBird());
+      setTimeout(() => { birds.push(new EvoBird()); }, 2000);
+
+      if (window.gameLoopId) cancelAnimationFrame(window.gameLoopId);
+      if (window.spawnTimer) clearInterval(window.spawnTimer);
+
+      window.spawnTimer = setInterval(() => {
+        if (!isGameOver && !player.isKnockedOut) {
+          spawnManager();
+        }
+      }, 1000);
+
+      loop();
+    }
+
+    function spawnManager() {
+      // 波による出現率調整
+      let foodChance = 0.7;
+      let dogChance = 0.02;
+      let bombChance = 0.03;
+      let lightningChance = 0.01;
+      let dancerChance = 0.02;
+
+      if (waveType === 0) {           // フードラッシュ
+        foodChance = 0.95;
+        dogChance = 0.01;
+        bombChance = 0.01;
+        lightningChance = 0.005;
+        dancerChance = 0.02;
+      } else if (waveType === 1) {    // 犬ラッシュ
+        foodChance = 0.6;
+        dogChance = 0.10; // 犬多め
+        bombChance = 0.01;
+        lightningChance = 0.005;
+        dancerChance = 0.03;
+      } else if (waveType === 2) {    // 雷・爆弾タイム
+        foodChance = 0.7;
+        dogChance = 0.02;
+        bombChance = 0.08;  // 爆弾多め
+        lightningChance = 0.05; // 雷多め
+        dancerChance = 0.03;
+      }
+
+      // 食べ物（基本は2つまで、フィーバー or フードラッシュ中はたくさん）
+      let maxFoods = MAX_FOODS_ON_SCREEN;
+      if (feverTimer > 0 || waveType === 0) {
+        maxFoods = 8; // ★制限解除でたくさん
+      }
+
+      if (foods.length < maxFoods && Math.random() < foodChance) {
+        foods.push(new Food());
+      }
+
+      // 敵キャラ出現抽選
+      const r = Math.random();
+      if (r < dogChance) {
+        enemies.push(new Dog());
+      } else if (r < dogChance + bombChance) {
+        enemies.push(new Bomb());
+      } else if (r < dogChance + bombChance + lightningChance) {
+        const hasLightning = enemies.some(e => e instanceof Lightning);
+        if (!hasLightning) {
+          enemies.push(new Lightning());
+        }
+      } else if (r < dogChance + bombChance + lightningChance + dancerChance) {
+        dancers.push(new FallingDancer());
+      }
+    }
+
+    function updateStatusDisplay() {
+      let hearts = '';
+      for (let i = 0; i < player.lives; i++) hearts += '❤️';
+      lifeContainer.textContent = hearts;
+
+      const percent = Math.max(0, player.health / MAX_HEALTH);
+      healthBar.style.width = `${percent * 100}%`;
+      if (percent < 0.3) healthBar.style.backgroundColor = '#d9534f';
+      else if (percent < 0.6) healthBar.style.backgroundColor = '#f0ad4e';
+      else healthBar.style.backgroundColor = '#4CAF50';
+    }
+
+    function updateScore(pts) {
+      const mult = getCurrentMultiplier();
+      score += pts * mult;
+      scoreDisplay.textContent = score;
+    }
+
+    function createParticle(x, y, e) {
+      particles.push(new Particle(x, y, e));
+    }
+
+    function loop() {
+      if (isGameOver) return;
+
+      // フィーバータイマー減少
+      if (feverTimer > 0) {
+        feverTimer--;
+      }
+
+      // 波タイマー
+      waveTimer++;
+      if (waveTimer > WAVE_DURATION) {
+        waveTimer = 0;
+        waveType = (waveType + 1) % 3;
+        if (waveType === 0) {
+          showMessage('フードラッシュ！', 1200);
+        } else if (waveType === 1) {
+          showMessage('犬ラッシュ！', 1200);
+        } else {
+          showMessage('雷・爆弾タイム！', 1200);
+        }
+      }
+
+      ctx.clearRect(0, 0, W, H);
+
+      // 背景・地面
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(0, groundY, W, H - groundY);
+      ctx.fillStyle = '#228B22';
+      ctx.fillRect(0, groundY, W, 15);
+
+      // 敵
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const res = enemies[i].update();
+        if (res === 'remove') enemies.splice(i, 1);
+        else enemies[i].draw();
+      }
+
+      // 落ちてくるダンサー
+      for (let i = dancers.length - 1; i >= 0; i--) {
+        const res = dancers[i].update();
+        if (res === 'remove') dancers.splice(i, 1);
+        else dancers[i].draw();
+      }
+
+      // パートナー
+      if (partner) {
+        const res = partner.update();
+        if (res === 'remove') partner = null;
+        else partner.draw();
+      }
+
+      // プレイヤー
+      player.update();
+      player.draw();
+
+      // 鳥
+      birds.forEach(b => { b.update(); b.draw(); });
+
+      // 食べ物
+      for (let i = foods.length - 1; i >= 0; i--) {
+        const res = foods[i].update();
+        if (res === 'remove' || foods[i].y > H + 50) {
+          foods.splice(i, 1);
+        } else {
+          foods[i].draw();
+        }
+      }
+
+      // パーティクル
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw();
+        if (particles[i].life <= 0) particles.splice(i, 1);
+      }
+
+      // 長押し処理
+      if (isTouching && !isSwiping) {
+        if (Date.now() - touchStartTime > 300) {
+          player.eat();
+        }
+      }
+
+      // 毎フレーム倍率UIだけは更新しておく
+      getCurrentMultiplier();
+
+      window.gameLoopId = requestAnimationFrame(loop);
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      clearInterval(window.spawnTimer);
+      finalScoreDisplay.textContent = `SCORE: ${score}`;
+      statSukusuku.textContent = sukusukuCount;
+      statPartner.textContent = partnerGetCount;
+      gameOverScreen.style.display = 'block';
+    }
+
+    // --- 5. イベント ---
+
+    restartButton.addEventListener('click', init);
+
+    let isSwiping = false;
+
+    function getPoint(e) {
+      if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    function handleStart(e) {
+      e.preventDefault();
+      if (isGameOver) return;
+
+      const p = getPoint(e);
+      touchStartX = p.x;
+      touchStartY = p.y;
+      lastTouchX = p.x;
+      isTouching = true;
+      isSwiping = false;
+
+      touchStartTime = Date.now();
+    }
+
+    function handleMove(e) {
+      e.preventDefault();
+      if (e.type === 'mousemove' && !isTouching) return;
+      if (isGameOver || !isTouching) return;
+
+      const p = getPoint(e);
+      const deltaX = p.x - lastTouchX;
+      if (Math.abs(deltaX) > 2) isSwiping = true;
+
+      player.move(deltaX);
+      lastTouchX = p.x;
+    }
+
+    function handleEnd(e) {
+      e.preventDefault();
+      if (isGameOver) return;
+
+      isTouching = false;
+
+      let endX, endY;
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        endX = e.changedTouches[0].clientX;
+        endY = e.changedTouches[0].clientY;
+      } else {
+        endX = e.clientX;
+        endY = e.clientY;
+      }
+
+      const diffY = endY - touchStartY;
+      const diffX = endX - touchStartX;
+      const dist = Math.sqrt(diffX * diffX + diffY * diffY);
+
+      if (dist < 20) {
+        const now = new Date().getTime();
+        if (now - lastTapTime < DOUBLE_TAP_DELAY) {
+          player.jumpPunch(true);
+          lastTapTime = 0;
+        } else {
+          player.jumpPunch(false);
+          lastTapTime = now;
+        }
+      }
+    }
+
+    canvas.addEventListener('touchstart', handleStart, { passive: false });
+    canvas.addEventListener('touchmove', handleMove, { passive: false });
+    canvas.addEventListener('touchend', handleEnd, { passive: false });
+
+    canvas.addEventListener('mousedown', handleStart);
+    canvas.addEventListener('mousemove', handleMove);
+    canvas.addEventListener('mouseup', handleEnd);
+    canvas.addEventListener('mouseleave', () => isTouching = false);
+
+    window.addEventListener('resize', () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      groundY = H - 80;
+      if (player) player.y = groundY - player.radius;
+    });
+
+    init();
+  })();
+  </script>
 </body>
 </html>
